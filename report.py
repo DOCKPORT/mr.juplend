@@ -1,84 +1,13 @@
 #!/usr/bin/env python3
-"""Fetch Jupiter Lend Earn tokens and print their APY."""
+"""Build and print the Jupiter Lend Earn report."""  # noqa: EXE001
 
 from __future__ import annotations
 
 import math
-import os
-import sys
 from collections import defaultdict
-from pathlib import Path
-from typing import Any, Final, NamedTuple
+from typing import Any, NamedTuple
 
-import requests
-
-API_URL: Final[str] = "https://api.jup.ag/lend/v1/earn/tokens"
-BORROW_URL: Final[str] = "https://api.jup.ag/lend/v1/borrow/vaults"
-DEFAULT_KEY_FILE: Final[Path] = Path(__file__).resolve().parent / "key"
-TIMEOUT_SECONDS: Final[float] = 15.0
-
-# The API documents supplyRate, rewardsRate, and totalRate in 1e4 scale.
-# Live check: USDC supplyRate "380" equals 3.80% APR.
-RATE_SCALE: Final[float] = 10_000.0
-
-
-class ApiError(RuntimeError):
-    """Raised when the API request or response is invalid."""
-
-
-def read_api_key(key_file: Path) -> str:
-    """Return the API key from the environment or from the key file."""
-    env_key = os.getenv("JUP_API_KEY", "").strip()
-    if env_key:
-        return env_key
-
-    if not key_file.is_file():
-        raise ApiError(f"Key file not found: {key_file}")
-
-    api_key = key_file.read_text(encoding="utf-8").strip()
-    if not api_key:
-        raise ApiError(f"Key file is empty: {key_file}")
-    return api_key
-
-
-def fetch_json(api_key: str, url: str) -> list[dict[str, Any]]:
-    """Return a JSON list from a Jupiter Lend endpoint."""
-    headers = {"x-api-key": api_key, "Accept": "application/json"}
-    try:
-        response = requests.get(url, headers=headers, timeout=TIMEOUT_SECONDS)
-    except requests.Timeout as error:
-        raise ApiError("Request timed out. Check the network and try again.") from error
-    except requests.RequestException as error:
-        raise ApiError(f"Request failed: {error}") from error
-
-    if response.status_code == 401:
-        raise ApiError("Unauthorized. The API key is missing or invalid.")
-    if response.status_code == 429:
-        raise ApiError("Rate limit reached. Wait and try again.")
-    if response.status_code != 200:
-        raise ApiError(
-            f"API returned status {response.status_code}: {response.text[:200]}"
-        )
-
-    try:
-        payload = response.json()
-    except ValueError as error:
-        raise ApiError("API response is not valid JSON.") from error
-
-    if not isinstance(payload, list):
-        raise ApiError(f"Unexpected response shape: {type(payload).__name__}")
-
-    return [item for item in payload if isinstance(item, dict)]
-
-
-def fetch_tokens(api_key: str) -> list[dict[str, Any]]:
-    """Return the list of Earn tokens."""
-    return fetch_json(api_key, API_URL)
-
-
-def fetch_vaults(api_key: str) -> list[dict[str, Any]]:
-    """Return the list of borrow vaults."""
-    return fetch_json(api_key, BORROW_URL)
+from fetch import RATE_SCALE
 
 
 def detect_rate_scale(tokens: list[dict[str, Any]]) -> float:
@@ -185,6 +114,10 @@ class TokenRow(NamedTuple):
     borrow_apy: float | None
     total_assets: float
     total_supply: float
+    earn_supply: float
+    collateral_supply: float
+    total_liquidity_supply: float
+    total_borrowed: float
     utilization: float | None
     assets_per_share: float | None
     shares_per_asset: float | None
@@ -215,9 +148,16 @@ def format_ratio(value: float | None) -> str:
 
 
 def token_symbol(token: dict[str, Any]) -> str:
-    """Return the display symbol for a token."""
+    """Return the display symbol for a token.
+
+    The API uses WSOL for the wrapped SPL mint, but its uiSymbol is SOL,
+    which matches the jup.ag display.
+    """
     asset = token.get("asset")
     if isinstance(asset, dict):
+        ui_symbol = asset.get("uiSymbol")
+        if isinstance(ui_symbol, str) and ui_symbol:
+            return ui_symbol
         symbol = asset.get("symbol")
         if isinstance(symbol, str) and symbol:
             return symbol
@@ -263,20 +203,16 @@ def build_rows(
 
         convert_assets = parse_int(token.get("convertToAssets"))
         convert_shares = parse_int(token.get("convertToShares"))
-        assets_per_share = (
-            convert_assets / convert_shares
-            if convert_assets > 0 and convert_shares > 0
-            else None
-        )
-        shares_per_asset = (
-            1.0 / assets_per_share if assets_per_share else None
-        )
+        # Both fields use the token decimals as scale, and they are reciprocal.
+        assets_per_share = convert_assets / denominator if convert_assets > 0 else None
+        shares_per_asset = convert_shares / denominator if convert_shares > 0 else None
 
         liquidity = token.get("liquiditySupplyData")
         earn_supply = (
             parse_int(liquidity.get("supply")) if isinstance(liquidity, dict) else 0
         )
-        total_liquidity = earn_supply + collateral_totals.get(asset_address, 0)
+        collateral_supply = collateral_totals.get(asset_address, 0)
+        total_liquidity = earn_supply + collateral_supply
         borrowed = borrow_totals.get(asset_address, 0)
         utilization = borrowed / total_liquidity * 100.0 if total_liquidity > 0 else None
 
@@ -293,6 +229,10 @@ def build_rows(
                 borrow_apy=borrow_apy,
                 total_assets=parse_int(token.get("totalAssets")) / denominator,
                 total_supply=parse_int(token.get("totalSupply")) / denominator,
+                earn_supply=earn_supply / denominator,
+                collateral_supply=collateral_supply / denominator,
+                total_liquidity_supply=total_liquidity / denominator,
+                total_borrowed=borrowed / denominator,
                 utilization=utilization,
                 assets_per_share=assets_per_share,
                 shares_per_asset=shares_per_asset,
@@ -333,8 +273,7 @@ def print_pool(rows: list[TokenRow]) -> None:
 
     header = (
         f"{'SYMBOL':<{symbol_width}}  {'TOTAL ASSETS':>12}  {'JL SUPPLY':>12}  "
-        f"{'UTIL (CALC)':>11}  {'ASSETS/SHARE':>12}  {'SHARES/ASSET':>12}  "
-        f"{'CAMPAIGNS':>9}"
+        f"{'ASSETS/SHARE':>12}  {'SHARES/ASSET':>12}  {'CAMPAIGNS':>9}"
     )
     print(header)
     print("-" * len(header))
@@ -344,42 +283,29 @@ def print_pool(rows: list[TokenRow]) -> None:
             f"{row.symbol:<{symbol_width}}  "
             f"{format_amount(row.total_assets):>12}  "
             f"{format_amount(row.total_supply):>12}  "
-            f"{format_pct(row.utilization):>11}  "
             f"{format_ratio(row.assets_per_share):>12}  "
             f"{format_ratio(row.shares_per_asset):>12}  "
             f"{row.campaigns:>9}"
         )
 
 
+def print_liquidity(rows: list[TokenRow]) -> None:
+    """Print the liquidity and utilization table."""
+    symbol_width = max(len("SYMBOL"), max(len(row.symbol) for row in rows))
 
-def main() -> int:
-    key_file = Path(os.getenv("JUP_KEY_FILE", str(DEFAULT_KEY_FILE)))
-    try:
-        api_key = read_api_key(key_file)
-        tokens = fetch_tokens(api_key)
-    except ApiError as error:
-        print(f"Error: {error}", file=sys.stderr)
-        return 1
+    header = (
+        f"{'SYMBOL':<{symbol_width}}  {'EARN SUPPLY':>12}  {'COLLATERAL':>12}  "
+        f"{'TOTAL SUPPLY':>12}  {'BORROWED':>12}  {'UTIL (CALC)':>11}"
+    )
+    print(header)
+    print("-" * len(header))
 
-    if not tokens:
-        print("No Earn tokens returned.")
-        return 0
-
-    try:
-        vaults = fetch_vaults(api_key)
-    except ApiError as error:
-        print(f"Warning: borrow data unavailable: {error}", file=sys.stderr)
-        vaults = []
-
-    scale = detect_rate_scale(tokens)
-    borrow_rates, borrow_totals, collateral_totals = aggregate_vaults(vaults)
-    rows = build_rows(tokens, scale, borrow_rates, borrow_totals, collateral_totals)
-
-    print_rates(rows)
-    print()
-    print_pool(rows)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+    for row in rows:
+        print(
+            f"{row.symbol:<{symbol_width}}  "
+            f"{format_amount(row.earn_supply):>12}  "
+            f"{format_amount(row.collateral_supply):>12}  "
+            f"{format_amount(row.total_liquidity_supply):>12}  "
+            f"{format_amount(row.total_borrowed):>12}  "
+            f"{format_pct(row.utilization):>11}"
+        )
