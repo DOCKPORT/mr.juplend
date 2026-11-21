@@ -1,9 +1,6 @@
-<table width="100%">
-  <tr>
-    <td><h1>Mr. Juplend</h1></td>
-    <td align="right"><img src="logos/mr.png" alt="Mr. Juplend" width="220"></td>
-  </tr>
-</table>
+# Mr. Juplend <img src="logos/mr.png" alt="Mr. Juplend" width="220" align="right">
+
+<br clear="all">
 
 A web app that shows the latest APY and pool details for Jupiter Lend Earn vaults on Solana. The Python report works now. The web frontend is in progress.
 
