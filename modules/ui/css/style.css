@@ -3,6 +3,31 @@
    Depends on theme.css and base.css. Narrow rules live in mobile.css.
    ========================================================================== */
 
+/* --- Background mark ------------------------------------------------------ */
+.page-mark {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center end;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.page-mark img {
+  inline-size: min(70vw, 820px);
+  block-size: auto;
+  opacity: 0.09;
+  transform: translateX(18%);
+  user-select: none;
+}
+
+main,
+.footer {
+  position: relative;
+  z-index: 1;
+}
+
 /* --- Top bar -------------------------------------------------------------- */
 .topbar {
   position: sticky;
@@ -17,7 +42,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  min-height: 64px;
+  min-height: 72px;
 }
 
 .brand {
@@ -28,22 +53,17 @@
   color: var(--text-primary);
 }
 
-.brand__logo {
-  inline-size: 40px;
-  block-size: 40px;
-  object-fit: contain;
-}
-
 .brand__name {
+  color: var(--text-primary);
   font-size: var(--text-md);
-  font-weight: var(--weight-bold);
+  font-weight: var(--weight-regular);
   letter-spacing: var(--tracking-tight);
   white-space: nowrap;
 }
 
 .brand__name span {
-  color: var(--text-muted);
-  font-weight: var(--weight-regular);
+  color: inherit;
+  font-weight: inherit;
 }
 
 .topbar__meta {
@@ -85,6 +105,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
+  background: color-mix(in srgb, var(--grey-900) 86%, transparent);
   overflow: hidden;
 }
 
@@ -147,11 +168,27 @@
 }
 
 .table td.is-numeric {
-  color: var(--text-secondary);
+  color: var(--grey-100);
 }
 
 .table td.is-positive {
   color: var(--sol-green);
+}
+
+.table td.util-low {
+  color: #4da3ff;
+}
+
+.table td.util-mid {
+  color: #ffd166;
+}
+
+.table td.util-high {
+  color: #ff9f43;
+}
+
+.table td.util-critical {
+  color: #ff5c5c;
 }
 
 .table td.is-empty {

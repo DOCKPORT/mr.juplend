@@ -77,9 +77,10 @@
    * @param {string} bodyId
    * @param {string} emptyId
    * @param {Array<Array<string>>} rows
+   * @param {number} [highlightIndex]
    * @returns {void}
    */
-  const fill = (bodyId, emptyId, rows) => {
+  const fill = (bodyId, emptyId, rows, highlightIndex = -1) => {
     const body = requireElement(bodyId);
     const empty = requireElement(emptyId);
     body.replaceChildren();
@@ -97,6 +98,9 @@
         td.textContent = text;
         if (index > 0) {
           td.classList.add("is-numeric");
+        }
+        if (index === highlightIndex) {
+          td.classList.add("is-positive");
         }
         tr.append(td);
       });
@@ -122,8 +126,22 @@
         percent(row.totalApy),
         percent(row.borrowApy),
       ]),
+      4,
     );
   };
+
+  /**
+   * Sort rows by one numeric field, biggest first. Null values go last.
+   * @param {SnapshotRow[]} rows
+   * @param {(row: SnapshotRow) => number | null} pick
+   * @returns {SnapshotRow[]}
+   */
+  const sortedDesc = (rows, pick) =>
+    [...rows].sort((a, b) => {
+      const left = pick(a);
+      const right = pick(b);
+      return (right ?? -Infinity) - (left ?? -Infinity);
+    });
 
   /**
    * Draw the pool table.
@@ -131,10 +149,11 @@
    * @returns {void}
    */
   const renderPool = (rows) => {
+    const sorted = sortedDesc(rows, (row) => row.totalAssets);
     fill(
       "pool-rows",
       "pool-empty",
-      rows.map((row) => [
+      sorted.map((row) => [
         row.symbol,
         amount(row.totalAssets),
         amount(row.totalSupply),
@@ -146,15 +165,37 @@
   };
 
   /**
+   * Return the color class for a utilization value.
+   * @param {number | null} value
+   * @returns {string}
+   */
+  const utilizationClass = (value) => {
+    if (value === null || !Number.isFinite(value)) {
+      return "";
+    }
+    if (value < 50) {
+      return "util-low";
+    }
+    if (value < 70) {
+      return "util-mid";
+    }
+    if (value < 90) {
+      return "util-high";
+    }
+    return "util-critical";
+  };
+
+  /**
    * Draw the liquidity table.
    * @param {SnapshotRow[]} rows
    * @returns {void}
    */
   const renderLiquidity = (rows) => {
+    const sorted = sortedDesc(rows, (row) => row.earnSupply);
     fill(
       "liquidity-rows",
       "liquidity-empty",
-      rows.map((row) => [
+      sorted.map((row) => [
         row.symbol,
         amount(row.earnSupply),
         amount(row.collateralSupply),
@@ -163,6 +204,16 @@
         percent(row.utilization),
       ]),
     );
+
+    const body = requireElement("liquidity-rows");
+    sorted.forEach((row, index) => {
+      const tr = body.children[index];
+      const cell = tr instanceof HTMLElement ? tr.children[5] : null;
+      const className = utilizationClass(row.utilization);
+      if (cell instanceof HTMLElement && className) {
+        cell.classList.add(className);
+      }
+    });
   };
 
   /**

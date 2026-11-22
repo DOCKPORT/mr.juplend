@@ -5,12 +5,17 @@
 
 @media (max-width: 720px) {
   .topbar__inner {
-    min-height: 56px;
+    min-height: 64px;
   }
 
-  .brand__logo {
-    inline-size: 32px;
-    block-size: 32px;
+  .page-mark {
+    place-items: center;
+  }
+
+  .page-mark img {
+    inline-size: 90vw;
+    opacity: 0.08;
+    transform: none;
   }
 
   .brand__name {
