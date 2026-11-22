@@ -1,0 +1,7 @@
+# The site is static. Python tooling and private data stay out of the deploy.
+modules/*.py
+modules/__pycache__/
+__pycache__/
+*.pyc
+data/
+memorybank/

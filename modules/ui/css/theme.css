@@ -1,0 +1,103 @@
+/* ==========================================================================
+   Mr. Juplend — Theme tokens
+   Dark only. Flat fills and hard rules. Load this file first.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* Grey ramp */
+  --grey-000: #ffffff;
+  --grey-100: #ececef;
+  --grey-200: #c6c6cd;
+  --grey-300: #9d9da7;
+  --grey-400: #86868f;
+  --grey-500: #3d3d47;
+  --grey-600: #2e2e36;
+  --grey-700: #24242a;
+  --grey-800: #1b1b1f;
+  --grey-850: #151518;
+  --grey-900: #101013;
+  --grey-950: #0b0b0d;
+
+  /* Accents */
+  --sol-purple: #9945ff;
+  --sol-teal: #03e1ff;
+  --sol-green: #14f195;
+  --sol-magenta: #dc1fff;
+
+  /* Typography */
+  --font-display: "Chivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body: var(--font-display);
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas,
+    monospace;
+
+  --text-2xs: 0.75rem;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-base: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: clamp(1.25rem, 0.6vw + 1.1rem, 1.5rem);
+  --text-xl: clamp(1.75rem, 1.2vw + 1.45rem, 2.25rem);
+
+  --leading-tight: 1.15;
+  --leading-normal: 1.6;
+
+  --tracking-tight: -0.02em;
+  --tracking-wide: 0.08em;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+
+  /* Space */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  --gutter: clamp(1rem, 3vw, 2.5rem);
+  --measure: 68ch;
+
+  /* Radius */
+  --radius-xs: 2px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Semantic surfaces */
+  --bg-page: var(--grey-950);
+  --bg-surface: var(--grey-900);
+  --bg-raised: var(--grey-800);
+  --bg-hover: var(--grey-700);
+
+  --border-subtle: var(--grey-700);
+  --border: var(--grey-600);
+  --border-strong: var(--grey-500);
+
+  --scrollbar-thumb: var(--border);
+  --scrollbar-track: transparent;
+
+  --text-primary: var(--grey-100);
+  --text-secondary: var(--grey-200);
+  --text-muted: var(--grey-300);
+  --text-faint: var(--grey-400);
+
+  --accent: var(--sol-teal);
+  --accent-soft: #142a33;
+  --negative: #ff6b81;
+
+  --focus-ring: 0 0 0 2px var(--bg-page), 0 0 0 4px var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+  }
+}
