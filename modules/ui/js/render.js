@@ -72,6 +72,45 @@
   const count = (value) =>
     value === null || !Number.isFinite(value) ? "\u2014" : String(value);
 
+  /** Asset logo files by lowercase symbol. */
+  const ASSET_LOGOS = {
+    usdc: "logos/usdc.png",
+    usdt: "logos/usdt.png",
+    usds: "logos/usds.png",
+    usdg: "logos/usdg.png",
+    usdgo: "logos/usdgo.png",
+    eurc: "logos/eurc.png",
+    jupusd: "logos/jupusd.png",
+    sol: "logos/sol.png",
+  };
+
+  /**
+   * Build the symbol cell content with an optional logo.
+   * @param {string} symbol
+   * @returns {HTMLElement}
+   */
+  const assetCell = (symbol) => {
+    const file = ASSET_LOGOS[symbol.toLowerCase()];
+    if (!file) {
+      return document.createTextNode(symbol);
+    }
+
+    const wrap = document.createElement("span");
+    wrap.className = "asset";
+
+    const img = document.createElement("img");
+    img.className = "asset-logo";
+    img.src = file;
+    img.alt = "";
+    img.width = 20;
+    img.height = 20;
+    img.loading = "lazy";
+    img.addEventListener("error", () => img.remove());
+
+    wrap.append(img, document.createTextNode(symbol));
+    return wrap;
+  };
+
   /**
    * Fill one table body.
    * @param {string} bodyId
@@ -95,7 +134,11 @@
       const tr = document.createElement("tr");
       cells.forEach((text, index) => {
         const td = document.createElement("td");
-        td.textContent = text;
+        if (index === 0) {
+          td.append(assetCell(text));
+        } else {
+          td.textContent = text;
+        }
         if (index > 0) {
           td.classList.add("is-numeric");
         }
