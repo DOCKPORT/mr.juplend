@@ -7,7 +7,7 @@ import math
 from collections import defaultdict
 from typing import Any, NamedTuple
 
-from fetch import RATE_SCALE
+from .fetch import RATE_SCALE
 
 
 def detect_rate_scale(tokens: list[dict[str, Any]]) -> float:

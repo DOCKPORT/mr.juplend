@@ -28,10 +28,10 @@ def read_api_key() -> str:
         return env_key
 
     try:
-        from jupdev_key import JUP_API_KEY as local_key
+        from .jupdev_key import JUP_API_KEY as local_key
     except ImportError as error:
         raise ApiError(
-            "API key not configured. Set JUP_API_KEY or create jupdev_key.py."
+            "API key not configured. Set JUP_API_KEY or create modules/jupdev_key.py."
         ) from error
 
     api_key = str(local_key).strip()

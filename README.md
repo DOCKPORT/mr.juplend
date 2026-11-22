@@ -20,7 +20,7 @@ The data comes from the [Jupiter Lend API](https://developers.jup.ag/docs/lend).
 - APY uses continuous compounding: `e^(APR) - 1`.
 - Utilization is calculated as total borrowed divided by total supply.
 
-The API key lives in `jupdev_key.py` or in the `JUP_API_KEY` environment variable. The `jupdev_key.py` file is ignored by git.
+The API key lives in `modules/jupdev_key.py` or in the `JUP_API_KEY` environment variable. The `jupdev_key.py` file is ignored by git.
 
 ## Storage
 

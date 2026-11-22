@@ -9,14 +9,14 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from db import DB_PATH, connect, init_schema, save_snapshot
-from fetch import (
+from modules.db import DB_PATH, connect, init_schema, save_snapshot
+from modules.fetch import (
     ApiError,
     fetch_tokens,
     fetch_vaults,
     read_api_key,
 )
-from report import (
+from modules.report import (
     aggregate_vaults,
     build_rows,
     detect_rate_scale,

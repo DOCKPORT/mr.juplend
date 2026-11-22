@@ -8,9 +8,11 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
 
-from report import TokenRow
+from .report import TokenRow
 
-DB_PATH: Final[Path] = Path(__file__).resolve().parent / "data" / "mrjuplend.db"
+DB_PATH: Final[Path] = (
+    Path(__file__).resolve().parent.parent / "data" / "mrjuplend.db"
+)
 
 SCHEMA: Final[tuple[str, ...]] = (
     """
