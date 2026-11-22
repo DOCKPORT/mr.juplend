@@ -1,6 +1,7 @@
-key
 jupdev_key.py
 __pycache__/
 *.pyc
 memorybank/
 data/
+turso_key.py
+turso_keys

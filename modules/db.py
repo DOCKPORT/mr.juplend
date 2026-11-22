@@ -1,18 +1,47 @@
 #!/usr/bin/env python3
-"""SQLite storage for Mr. Juplend daily snapshots."""  # noqa: EXE001
+"""Snapshot storage for Mr. Juplend. Uses Turso or local SQLite."""  # noqa: EXE001
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
+from . import turso
 from .report import TokenRow
 
 DB_PATH: Final[Path] = (
     Path(__file__).resolve().parent.parent / "data" / "mrjuplend.db"
 )
+
+DELETE_SQL: Final[str] = (
+    "DELETE FROM {table} WHERE substr(fetched_at, 1, 10) = ?"
+)
+
+RATES_INSERT: Final[str] = """
+    INSERT INTO Rates (
+        fetched_at, symbol, name,
+        supply_apy, rewards_apy, total_apy, borrow_apy
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+"""
+
+POOL_INSERT: Final[str] = """
+    INSERT INTO Pool (
+        fetched_at, symbol,
+        total_assets, total_supply,
+        assets_per_share, shares_per_asset, campaigns
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+"""
+
+LIQUIDITY_INSERT: Final[str] = """
+    INSERT INTO Liquidity (
+        fetched_at, symbol,
+        earn_supply, collateral_supply, total_liquidity_supply,
+        total_borrowed, utilization
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+"""
 
 SCHEMA: Final[tuple[str, ...]] = (
     """
@@ -48,17 +77,17 @@ SCHEMA: Final[tuple[str, ...]] = (
         utilization REAL
     )
     """,
-    ("CREATE UNIQUE INDEX IF NOT EXISTS Rates_day_symbol "
-    "ON Rates(substr(fetched_at, 1, 10), symbol)"),
-    ("CREATE UNIQUE INDEX IF NOT EXISTS Pool_day_symbol "
-    "ON Pool(substr(fetched_at, 1, 10), symbol)"),
-    ("CREATE UNIQUE INDEX IF NOT EXISTS Liquidity_day_symbol "
-    "ON Liquidity(substr(fetched_at, 1, 10), symbol)"),
+    "CREATE UNIQUE INDEX IF NOT EXISTS Rates_day_symbol "
+    "ON Rates(substr(fetched_at, 1, 10), symbol)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS Pool_day_symbol "
+    "ON Pool(substr(fetched_at, 1, 10), symbol)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS Liquidity_day_symbol "
+    "ON Liquidity(substr(fetched_at, 1, 10), symbol)",
 )
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
-    """Open the database and create the parent folder."""
+    """Open the local database and create the parent folder."""
     db_path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(db_path)
     connection.execute("PRAGMA journal_mode = WAL")
@@ -70,6 +99,58 @@ def init_schema(connection: sqlite3.Connection) -> None:
     for statement in SCHEMA:
         connection.execute(statement)
     connection.commit()
+
+
+def rates_values(
+    rows: Sequence[TokenRow], fetched_at: str
+) -> list[tuple[Any, ...]]:
+    """Return the Rates insert values."""
+    return [
+        (
+            fetched_at,
+            row.symbol,
+            row.name,
+            row.supply_apy,
+            row.rewards_apy,
+            row.total_apy,
+            row.borrow_apy,
+        )
+        for row in rows
+    ]
+
+
+def pool_values(rows: Sequence[TokenRow], fetched_at: str) -> list[tuple[Any, ...]]:
+    """Return the Pool insert values."""
+    return [
+        (
+            fetched_at,
+            row.symbol,
+            row.total_assets,
+            row.total_supply,
+            row.assets_per_share,
+            row.shares_per_asset,
+            row.campaigns,
+        )
+        for row in rows
+    ]
+
+
+def liquidity_values(
+    rows: Sequence[TokenRow], fetched_at: str
+) -> list[tuple[Any, ...]]:
+    """Return the Liquidity insert values."""
+    return [
+        (
+            fetched_at,
+            row.symbol,
+            row.earn_supply,
+            row.collateral_supply,
+            row.total_liquidity_supply,
+            row.total_borrowed,
+            row.utilization,
+        )
+        for row in rows
+    ]
 
 
 def has_snapshot(connection: sqlite3.Connection, snapshot_date: str) -> bool:
@@ -86,89 +167,135 @@ def save_snapshot(
     rows: Sequence[TokenRow],
     fetched_at: str,
     complete: bool = True,
-) -> None:
-    """Replace the snapshot for one date in all three tables.
+) -> str:
+    """Replace the snapshot for one date in the local database.
 
-    The date is the first 10 characters of the UTC timestamp. A second run
-    on the same date deletes the old rows first, so the database keeps
-    exactly one set of data per day. An incomplete run keeps an existing
-    snapshot for the same date.
+    Returns "saved", "kept", or "skipped". The date is the first 10
+    characters of the UTC timestamp. A second run on the same date deletes
+    the old rows first. An incomplete run keeps an existing snapshot.
     """
     if not rows:
-        return
+        return "skipped"
 
     snapshot_date = fetched_at[:10]
     if not complete and has_snapshot(connection, snapshot_date):
-        return
+        return "kept"
 
     with connection:
         for table in ("Rates", "Pool", "Liquidity"):
-            connection.execute(
-                f"DELETE FROM {table} WHERE substr(fetched_at, 1, 10) = ?",
-                (snapshot_date,),
-            )
+            connection.execute(DELETE_SQL.format(table=table), (snapshot_date,))
 
+        connection.executemany(RATES_INSERT, rates_values(rows, fetched_at))
+        connection.executemany(POOL_INSERT, pool_values(rows, fetched_at))
         connection.executemany(
-            """
-            INSERT INTO Rates (
-                fetched_at, symbol, name,
-                supply_apy, rewards_apy, total_apy, borrow_apy
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    fetched_at,
-                    row.symbol,
-                    row.name,
-                    row.supply_apy,
-                    row.rewards_apy,
-                    row.total_apy,
-                    row.borrow_apy,
-                )
-                for row in rows
-            ],
+            LIQUIDITY_INSERT, liquidity_values(rows, fetched_at)
         )
+    return "saved"
 
-        connection.executemany(
-            """
-            INSERT INTO Pool (
-                fetched_at, symbol,
-                total_assets, total_supply,
-                assets_per_share, shares_per_asset, campaigns
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    fetched_at,
-                    row.symbol,
-                    row.total_assets,
-                    row.total_supply,
-                    row.assets_per_share,
-                    row.shares_per_asset,
-                    row.campaigns,
-                )
-                for row in rows
-            ],
-        )
 
-        connection.executemany(
-            """
-            INSERT INTO Liquidity (
-                fetched_at, symbol,
-                earn_supply, collateral_supply, total_liquidity_supply,
-                total_borrowed, utilization
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    fetched_at,
-                    row.symbol,
-                    row.earn_supply,
-                    row.collateral_supply,
-                    row.total_liquidity_supply,
-                    row.total_borrowed,
-                    row.utilization,
-                )
-                for row in rows
-            ],
+def turso_config() -> tuple[str, str] | None:
+    """Return the Turso URL and write token, or None."""
+    url = os.getenv("TURSO_URL", "").strip()
+    token = os.getenv("TURSO_WRITE_TOKEN", "").strip()
+
+    if not url or not token:
+        try:
+            from .turso_key import TURSO_URL, TURSO_WRITE_TOKEN
+        except ImportError:
+            return None
+        url = url or str(TURSO_URL).strip()
+        token = token or str(TURSO_WRITE_TOKEN).strip()
+
+    if url and token:
+        return url, token
+    return None
+
+
+class LocalStore:
+    """Snapshot storage on a local SQLite file."""
+
+    name = "SQLite"
+
+    def __init__(self, db_path: Path) -> None:
+        self.connection = connect(db_path)
+
+    def init_schema(self) -> None:
+        """Create the tables."""
+        init_schema(self.connection)
+
+    def save_snapshot(
+        self, rows: Sequence[TokenRow], fetched_at: str, complete: bool = True
+    ) -> str:
+        """Write one daily snapshot."""
+        return save_snapshot(self.connection, rows, fetched_at, complete)
+
+    def close(self) -> None:
+        """Close the connection."""
+        self.connection.close()
+
+
+class TursoStore:
+    """Snapshot storage on Turso over HTTP."""
+
+    name = "Turso"
+
+    def __init__(self, url: str, token: str) -> None:
+        self.url = url
+        self.token = token
+
+    def init_schema(self) -> None:
+        """Create the tables."""
+        for statement in SCHEMA:
+            turso.execute(self.url, self.token, statement)
+
+    def has_snapshot(self, snapshot_date: str) -> bool:
+        """Return True when the date already has stored rows."""
+        rows = turso.execute(
+            self.url,
+            self.token,
+            "SELECT 1 FROM Rates WHERE substr(fetched_at, 1, 10) = ? LIMIT 1",
+            (snapshot_date,),
         )
+        return bool(rows)
+
+    def save_snapshot(
+        self, rows: Sequence[TokenRow], fetched_at: str, complete: bool = True
+    ) -> str:
+        """Write one daily snapshot in an atomic batch."""
+        if not rows:
+            return "skipped"
+
+        snapshot_date = fetched_at[:10]
+        if not complete and self.has_snapshot(snapshot_date):
+            return "kept"
+
+        statements = [
+            turso.statement(DELETE_SQL.format(table=table), (snapshot_date,))
+            for table in ("Rates", "Pool", "Liquidity")
+        ]
+        statements.extend(
+            turso.statement(RATES_INSERT, values)
+            for values in rates_values(rows, fetched_at)
+        )
+        statements.extend(
+            turso.statement(POOL_INSERT, values)
+            for values in pool_values(rows, fetched_at)
+        )
+        statements.extend(
+            turso.statement(LIQUIDITY_INSERT, values)
+            for values in liquidity_values(rows, fetched_at)
+        )
+        turso.execute_batch(self.url, self.token, statements)
+        return "saved"
+
+    def close(self) -> None:
+        """Close does nothing for HTTP."""
+        return
+
+
+def create_store() -> LocalStore | TursoStore:
+    """Return the Turso store when configured, else the local store."""
+    config = turso_config()
+    if config is not None:
+        return TursoStore(*config)
+    return LocalStore(Path(os.getenv("JUP_DB_PATH", str(DB_PATH))))

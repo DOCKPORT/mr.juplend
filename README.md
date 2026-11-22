@@ -24,10 +24,10 @@ The API key lives in `modules/jupdev_key.py` or in the `JUP_API_KEY` environment
 
 ## Storage
 
-A local SQLite database keeps one snapshot per day and the full history. The cloud copy will live in Turso, a hosted libSQL database.
+A SQLite database keeps one snapshot per day and the full history. The Python writer uses Turso when credentials are set. Otherwise it writes the local `data/mrjuplend.db` file.
 
 - A new run on the same day replaces that day's rows, so each day has one set of data.
-- GitHub Actions will sync new snapshots to Turso on each run.
+- GitHub Actions will run the script with Turso credentials.
 - The Vercel web app reads current and historical data from Turso.
 - The browser never receives the Jupiter API key or the Turso write token.
 
@@ -46,7 +46,7 @@ A local SQLite database keeps one snapshot per day and the full history. The clo
 | - | - |
 | Python report | Ready |
 | SQLite storage | Ready |
-| Turso cloud database | Planned |
+| Turso cloud database | Ready |
 | Web app | Planned |
 | Scheduled updates | Planned |
 | Charts and history | Planned |

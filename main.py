@@ -3,13 +3,11 @@
 
 from __future__ import annotations
 
-import os
 import sqlite3
 import sys
 from datetime import datetime, timezone
-from pathlib import Path
 
-from modules.db import DB_PATH, connect, init_schema, save_snapshot
+from modules.db import create_store
 from modules.fetch import (
     ApiError,
     fetch_tokens,
@@ -24,6 +22,7 @@ from modules.report import (
     print_pool,
     print_rates,
 )
+from modules.turso import TursoError
 
 
 def main() -> int:
@@ -51,22 +50,30 @@ def main() -> int:
     borrow_rates, borrow_totals, collateral_totals = aggregate_vaults(vaults)
     rows = build_rows(tokens, scale, borrow_rates, borrow_totals, collateral_totals)
 
-    db_path = Path(os.getenv("JUP_DB_PATH", str(DB_PATH)))
     now = datetime.now(timezone.utc)  # noqa: UP017
+    store = None
     try:
-        connection = connect(db_path)
-        try:
-            init_schema(connection)
-            save_snapshot(
-                connection,
-                rows,
-                now.isoformat(timespec="seconds"),
-                complete=not partial_snapshot,
-            )
-        finally:
-            connection.close()
-    except sqlite3.Error as error:
+        store = create_store()
+        store.init_schema()
+        status = store.save_snapshot(
+            rows,
+            now.isoformat(timespec="seconds"),
+            complete=not partial_snapshot,
+        )
+    except (sqlite3.Error, TursoError) as error:
         print(f"Warning: database write failed: {error}", file=sys.stderr)
+    else:
+        snapshot_date = now.date().isoformat()
+        if status == "skipped":
+            print(f"Database: {store.name} snapshot skipped for {snapshot_date}.")
+        else:
+            print(
+                f"Database: {store.name} snapshot {status} for {snapshot_date} "
+                f"({len(rows)} tokens)."
+            )
+    finally:
+        if store is not None:
+            store.close()
 
     print_rates(rows)
     print()
