@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""SQLite storage for Mr. Juplend daily snapshots."""
+"""SQLite storage for Mr. Juplend daily snapshots."""  # noqa: EXE001
 
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Final, Sequence
+from typing import Final
 
 from report import TokenRow
 
@@ -45,12 +46,12 @@ SCHEMA: Final[tuple[str, ...]] = (
         utilization REAL
     )
     """,
-    "CREATE UNIQUE INDEX IF NOT EXISTS Rates_day_symbol "
-    "ON Rates(substr(fetched_at, 1, 10), symbol)",
-    "CREATE UNIQUE INDEX IF NOT EXISTS Pool_day_symbol "
-    "ON Pool(substr(fetched_at, 1, 10), symbol)",
-    "CREATE UNIQUE INDEX IF NOT EXISTS Liquidity_day_symbol "
-    "ON Liquidity(substr(fetched_at, 1, 10), symbol)",
+    ("CREATE UNIQUE INDEX IF NOT EXISTS Rates_day_symbol "
+    "ON Rates(substr(fetched_at, 1, 10), symbol)"),
+    ("CREATE UNIQUE INDEX IF NOT EXISTS Pool_day_symbol "
+    "ON Pool(substr(fetched_at, 1, 10), symbol)"),
+    ("CREATE UNIQUE INDEX IF NOT EXISTS Liquidity_day_symbol "
+    "ON Liquidity(substr(fetched_at, 1, 10), symbol)"),
 )
 
 

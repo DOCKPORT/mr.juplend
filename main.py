@@ -52,7 +52,7 @@ def main() -> int:
     rows = build_rows(tokens, scale, borrow_rates, borrow_totals, collateral_totals)
 
     db_path = Path(os.getenv("JUP_DB_PATH", str(DB_PATH)))
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)  # noqa: UP017
     try:
         connection = connect(db_path)
         try:
