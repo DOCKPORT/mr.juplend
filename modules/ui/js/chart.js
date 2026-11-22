@@ -8,6 +8,7 @@
  * @property {string} symbol
  * @property {number | null} [totalApy]
  * @property {number | null} [totalAssets]
+ * @property {number | null} [utilization]
  */
 
 (() => {
@@ -19,18 +20,18 @@
 
   /** Fixed colors by symbol. */
   const COLORS = {
-    USDC: "#4da3ff",
-    USDT: "#26a17b",
-    USDS: "#03e1ff",
-    USDG: "#f5c542",
-    USDGO: "#ff6b81",
-    JUPUSD: "#9945ff",
-    SOL: "#14f195",
-    EURC: "#7c8cff",
+    USDC: "#3b82f6",
+    USDT: "#22c55e",
+    USDS: "#06b6d4",
+    USDG: "#f59e0b",
+    USDGO: "#ef4444",
+    JUPUSD: "#a855f7",
+    SOL: "#84cc16",
+    EURC: "#ec4899",
   };
 
   /** Fallback colors for a new symbol. */
-  const PALETTE = ["#ffd166", "#ff9f43", "#c084fc", "#34d399"];
+  const PALETTE = ["#f97316", "#8b5cf6", "#2dd4bf", "#facc15"];
 
   /** @type {Map<string, unknown>} */
   const instances = new Map();
@@ -289,5 +290,21 @@
     });
   };
 
-  ns.chart = { renderRates, renderPool };
+  /**
+   * Draw the Utilization history chart.
+   * @param {SeriesRow[]} rows
+   * @returns {void}
+   */
+  const renderLiquidity = (rows) => {
+    renderLineChart({
+      canvasId: "liquidity-chart",
+      emptyId: "liquidity-chart-empty",
+      rows,
+      valueKey: "utilization",
+      formatValue: formatPercent,
+      formatTick: (value) => `${value.toFixed(1)}%`,
+    });
+  };
+
+  ns.chart = { renderRates, renderPool, renderLiquidity };
 })();

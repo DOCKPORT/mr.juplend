@@ -96,13 +96,13 @@
     const config = /** @type {{ readToken?: string } | undefined} */ (
       ns.config
     );
-    const api = /** @type {{ fetchLatest: () => Promise<Snapshot>, fetchHistory: () => Promise<HistoryRow[]>, fetchPoolHistory: () => Promise<PoolHistoryRow[]> } | undefined} */ (
+    const api = /** @type {{ fetchLatest: () => Promise<Snapshot>, fetchHistory: () => Promise<HistoryRow[]>, fetchPoolHistory: () => Promise<PoolHistoryRow[]>, fetchLiquidityHistory: () => Promise<LiquidityHistoryRow[]> } | undefined} */ (
       ns.api
     );
     const render = /** @type {{ renderAll: (rows: SnapshotRow[]) => void } | undefined} */ (
       ns.render
     );
-    const chart = /** @type {{ renderRates: (rows: HistoryRow[]) => void, renderPool: (rows: PoolHistoryRow[]) => void } | undefined} */ (
+    const chart = /** @type {{ renderRates: (rows: HistoryRow[]) => void, renderPool: (rows: PoolHistoryRow[]) => void, renderLiquidity: (rows: LiquidityHistoryRow[]) => void } | undefined} */ (
       ns.chart
     );
 
@@ -121,16 +121,18 @@
       render.renderAll([]);
       chart?.renderRates([]);
       chart?.renderPool([]);
+      chart?.renderLiquidity([]);
       return;
     }
 
     setStatus("Loading the latest snapshot.");
     try {
-      const [snapshotResult, historyResult, poolHistoryResult] =
+      const [snapshotResult, historyResult, poolHistoryResult, liquidityHistoryResult] =
         await Promise.allSettled([
           api.fetchLatest(),
           api.fetchHistory(),
           api.fetchPoolHistory(),
+          api.fetchLiquidityHistory(),
         ]);
       if (snapshotResult.status === "rejected") {
         throw snapshotResult.reason;
@@ -170,6 +172,20 @@
         );
       }
 
+      if (liquidityHistoryResult.status === "fulfilled") {
+        if (chart) {
+          chart.renderLiquidity(liquidityHistoryResult.value);
+        }
+        setChartStatus("liquidity-chart-status", "");
+      } else {
+        console.error(liquidityHistoryResult.reason);
+        setChartStatus(
+          "liquidity-chart-status",
+          "History failed to load.",
+          "error",
+        );
+      }
+
       setAppState("ready");
     } catch (error) {
       console.error(error);
@@ -180,6 +196,7 @@
       );
       setChartStatus("chart-status", "History failed to load.", "error");
       setChartStatus("pool-chart-status", "History failed to load.", "error");
+      setChartStatus("liquidity-chart-status", "History failed to load.", "error");
     }
   };
 

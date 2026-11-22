@@ -13,6 +13,13 @@
  */
 
 /**
+ * @typedef {object} LiquidityHistoryRow
+ * @property {string} day
+ * @property {string} symbol
+ * @property {number | null} utilization
+ */
+
+/**
  * @file Read the latest snapshot from Turso over HTTP.
  */
 
@@ -219,5 +226,29 @@
     }));
   };
 
-  ns.api = { fetchLatest, fetchHistory, fetchPoolHistory };
+  /**
+   * Read every day of the Liquidity table, oldest first.
+   * @returns {Promise<LiquidityHistoryRow[]>}
+   */
+  const fetchLiquidityHistory = async () => {
+    const rows = await query(
+      `SELECT substr(fetched_at, 1, 10) AS day, symbol, utilization
+       FROM Liquidity
+       ORDER BY day ASC, symbol ASC`,
+      [],
+    );
+
+    return rows.map((row) => ({
+      day: String(row[0] ?? ""),
+      symbol: String(row[1] ?? ""),
+      utilization: /** @type {number | null} */ (row[2]),
+    }));
+  };
+
+  ns.api = {
+    fetchLatest,
+    fetchHistory,
+    fetchPoolHistory,
+    fetchLiquidityHistory,
+  };
 })();

@@ -182,6 +182,28 @@
             </p>
           </div>
         </article>
+
+        <article class="panel chart-panel">
+          <div class="chart-panel__head">
+            <h3>Utilization history</h3>
+            <p id="liquidity-chart-status"></p>
+          </div>
+          <div class="chart-wrap">
+            <canvas
+              id="liquidity-chart"
+              role="img"
+              aria-label="Utilization over time by asset"
+            ></canvas>
+          </div>
+          <p
+            class="panel__empty"
+            id="liquidity-chart-empty"
+            role="status"
+            hidden
+          >
+            No history yet.
+          </p>
+        </article>
       </section>
     </main>
 
