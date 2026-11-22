@@ -1,4 +1,11 @@
 /**
+ * @typedef {object} HistoryRow
+ * @property {string} day
+ * @property {string} symbol
+ * @property {number | null} totalApy
+ */
+
+/**
  * @file Read the latest snapshot from Turso over HTTP.
  */
 
@@ -167,5 +174,24 @@
     };
   };
 
-  ns.api = { fetchLatest };
+  /**
+   * Read every day of the Rates table, oldest first.
+   * @returns {Promise<HistoryRow[]>}
+   */
+  const fetchHistory = async () => {
+    const rows = await query(
+      `SELECT substr(fetched_at, 1, 10) AS day, symbol, total_apy
+       FROM Rates
+       ORDER BY day ASC, symbol ASC`,
+      [],
+    );
+
+    return rows.map((row) => ({
+      day: String(row[0] ?? ""),
+      symbol: String(row[1] ?? ""),
+      totalApy: /** @type {number | null} */ (row[2]),
+    }));
+  };
+
+  ns.api = { fetchLatest, fetchHistory };
 })();

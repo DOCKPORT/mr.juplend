@@ -42,6 +42,19 @@
   };
 
   /**
+   * @param {string} text
+   * @param {"info" | "error"} [tone]
+   * @returns {void}
+   */
+  const setChartStatus = (text, tone = "info") => {
+    const node = document.getElementById("chart-status");
+    if (node instanceof HTMLElement) {
+      node.textContent = text;
+      node.dataset.tone = tone;
+    }
+  };
+
+  /**
    * @param {string | null} iso
    * @returns {string}
    */
@@ -82,11 +95,14 @@
     const config = /** @type {{ readToken?: string } | undefined} */ (
       ns.config
     );
-    const api = /** @type {{ fetchLatest: () => Promise<Snapshot> } | undefined} */ (
+    const api = /** @type {{ fetchLatest: () => Promise<Snapshot>, fetchHistory: () => Promise<HistoryRow[]> } | undefined} */ (
       ns.api
     );
     const render = /** @type {{ renderAll: (rows: SnapshotRow[]) => void } | undefined} */ (
       ns.render
+    );
+    const chart = /** @type {{ render: (rows: HistoryRow[]) => void } | undefined} */ (
+      ns.chart
     );
 
     if (!api || !render) {
@@ -107,7 +123,15 @@
 
     setStatus("Loading the latest snapshot.");
     try {
-      const snapshot = await api.fetchLatest();
+      const [snapshotResult, historyResult] = await Promise.allSettled([
+        api.fetchLatest(),
+        api.fetchHistory(),
+      ]);
+      if (snapshotResult.status === "rejected") {
+        throw snapshotResult.reason;
+      }
+
+      const snapshot = snapshotResult.value;
       render.renderAll(snapshot.rows);
       setUpdated(formatUpdated(snapshot.fetchedAt));
 
@@ -116,6 +140,17 @@
       } else {
         setStatus(`Snapshot ${snapshot.day}. ${snapshot.rows.length} assets.`);
       }
+
+      if (historyResult.status === "fulfilled") {
+        if (chart) {
+          chart.render(historyResult.value);
+        }
+        setChartStatus("");
+      } else {
+        console.error(historyResult.reason);
+        setChartStatus("History failed to load.", "error");
+      }
+
       setAppState("ready");
     } catch (error) {
       console.error(error);
@@ -124,6 +159,7 @@
         error instanceof Error ? error.message : "The snapshot failed to load.",
         "error",
       );
+      setChartStatus("History failed to load.", "error");
     }
   };
 

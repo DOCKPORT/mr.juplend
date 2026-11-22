@@ -88,6 +88,23 @@
             </p>
           </div>
         </article>
+
+        <article class="panel chart-panel">
+          <div class="chart-panel__head">
+            <h3>APY history</h3>
+            <p id="chart-status"></p>
+          </div>
+          <div class="chart-wrap">
+            <canvas
+              id="rates-chart"
+              role="img"
+              aria-label="Total APY over time by asset"
+            ></canvas>
+          </div>
+          <p class="panel__empty" id="chart-empty" role="status" hidden>
+            No history yet.
+          </p>
+        </article>
       </section>
 
       <section class="section" aria-labelledby="pool-title">
@@ -174,9 +191,11 @@
       }, 2000);
     </script>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="modules/ui/js/config.js"></script>
     <script src="modules/ui/js/api.js"></script>
     <script src="modules/ui/js/render.js"></script>
+    <script src="modules/ui/js/chart.js"></script>
     <script src="modules/ui/js/main.js"></script>
   </body>
 </html>
