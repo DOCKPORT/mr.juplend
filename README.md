@@ -22,11 +22,20 @@ The data comes from the [Jupiter Lend API](https://developers.jup.ag/docs/lend).
 
 The API key stays in a local `key` file or in the `JUP_API_KEY` environment variable.
 
+## Storage
+
+A local SQLite database will keep the latest snapshot and the full history. The cloud copy will live in Turso, a hosted libSQL database.
+
+- GitHub Actions writes new snapshots to Turso on each run.
+- The Vercel web app reads current and historical data from Turso.
+- The browser never receives the Jupiter API key or the Turso write token.
+
 ## Tech stack
 
 - Python 3.10 or later with `requests`.
 - HTML, CSS, and vanilla JavaScript for the web app.
-- JSON data files for the site.
+- SQLite for local storage and history.
+- Turso for the hosted cloud database.
 - GitHub Actions for scheduled updates.
 - Vercel for static hosting.
 
@@ -35,6 +44,8 @@ The API key stays in a local `key` file or in the `JUP_API_KEY` environment vari
 | Part | Status |
 | - | - |
 | Python report | Ready |
+| SQLite storage | Planned |
+| Turso cloud database | Planned |
 | Web app | Planned |
 | Scheduled updates | Planned |
 | Charts and history | Planned |
