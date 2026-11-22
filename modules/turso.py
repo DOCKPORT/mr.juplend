@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Turso SQL over HTTP client."""
+"""Turso SQL over HTTP client."""  # noqa: EXE001
 
 from __future__ import annotations
 
 import base64
-from typing import Any, Final, Sequence
+from collections.abc import Sequence
+from typing import Any, Final
 
 import requests
 

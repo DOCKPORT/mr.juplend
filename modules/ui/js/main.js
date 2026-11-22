@@ -74,6 +74,11 @@
   const start = async () => {
     stampYear();
 
+    if (window.matchMedia("(max-width: 768px)").matches) {
+      setAppState("ready");
+      return;
+    }
+
     const config = /** @type {{ readToken?: string } | undefined} */ (
       ns.config
     );
