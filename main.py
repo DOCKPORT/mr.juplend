@@ -11,7 +11,6 @@ from pathlib import Path
 
 from db import DB_PATH, connect, init_schema, save_snapshot
 from fetch import (
-    DEFAULT_KEY_FILE,
     ApiError,
     fetch_tokens,
     fetch_vaults,
@@ -28,9 +27,8 @@ from report import (
 
 
 def main() -> int:
-    key_file = Path(os.getenv("JUP_KEY_FILE", str(DEFAULT_KEY_FILE)))
     try:
-        api_key = read_api_key(key_file)
+        api_key = read_api_key()
         tokens = fetch_tokens(api_key)
     except ApiError as error:
         print(f"Error: {error}", file=sys.stderr)

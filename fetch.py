@@ -4,14 +4,12 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import Any, Final
 
 import requests
 
 API_URL: Final[str] = "https://api.jup.ag/lend/v1/earn/tokens"
 BORROW_URL: Final[str] = "https://api.jup.ag/lend/v1/borrow/vaults"
-DEFAULT_KEY_FILE: Final[Path] = Path(__file__).resolve().parent / "key"
 TIMEOUT_SECONDS: Final[float] = 15.0
 
 # The API documents supplyRate, rewardsRate, and totalRate in 1e4 scale.
@@ -23,18 +21,22 @@ class ApiError(RuntimeError):
     """Raised when the API request or response is invalid."""
 
 
-def read_api_key(key_file: Path) -> str:
-    """Return the API key from the environment or from the key file."""
+def read_api_key() -> str:
+    """Return the API key from the environment or from jupdev_key.py."""
     env_key = os.getenv("JUP_API_KEY", "").strip()
     if env_key:
         return env_key
 
-    if not key_file.is_file():
-        raise ApiError(f"Key file not found: {key_file}")
+    try:
+        from jupdev_key import JUP_API_KEY as local_key
+    except ImportError as error:
+        raise ApiError(
+            "API key not configured. Set JUP_API_KEY or create jupdev_key.py."
+        ) from error
 
-    api_key = key_file.read_text(encoding="utf-8").strip()
+    api_key = str(local_key).strip()
     if not api_key:
-        raise ApiError(f"Key file is empty: {key_file}")
+        raise ApiError("jupdev_key.py does not set JUP_API_KEY.")
     return api_key
 
 
