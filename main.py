@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
+from db import DB_PATH, connect, init_schema, save_snapshot
 from fetch import (
     DEFAULT_KEY_FILE,
     ApiError,
@@ -42,10 +45,30 @@ def main() -> int:
     except ApiError as error:
         print(f"Warning: borrow data unavailable: {error}", file=sys.stderr)
         vaults = []
+        partial_snapshot = True
+    else:
+        partial_snapshot = False
 
     scale = detect_rate_scale(tokens)
     borrow_rates, borrow_totals, collateral_totals = aggregate_vaults(vaults)
     rows = build_rows(tokens, scale, borrow_rates, borrow_totals, collateral_totals)
+
+    db_path = Path(os.getenv("JUP_DB_PATH", str(DB_PATH)))
+    now = datetime.now(timezone.utc)
+    try:
+        connection = connect(db_path)
+        try:
+            init_schema(connection)
+            save_snapshot(
+                connection,
+                rows,
+                now.isoformat(timespec="seconds"),
+                complete=not partial_snapshot,
+            )
+        finally:
+            connection.close()
+    except sqlite3.Error as error:
+        print(f"Warning: database write failed: {error}", file=sys.stderr)
 
     print_rates(rows)
     print()

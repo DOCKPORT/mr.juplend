@@ -24,9 +24,10 @@ The API key stays in a local `key` file or in the `JUP_API_KEY` environment vari
 
 ## Storage
 
-A local SQLite database will keep the latest snapshot and the full history. The cloud copy will live in Turso, a hosted libSQL database.
+A local SQLite database keeps one snapshot per day and the full history. The cloud copy will live in Turso, a hosted libSQL database.
 
-- GitHub Actions writes new snapshots to Turso on each run.
+- A new run on the same day replaces that day's rows, so each day has one set of data.
+- GitHub Actions will sync new snapshots to Turso on each run.
 - The Vercel web app reads current and historical data from Turso.
 - The browser never receives the Jupiter API key or the Turso write token.
 
@@ -44,7 +45,7 @@ A local SQLite database will keep the latest snapshot and the full history. The 
 | Part | Status |
 | - | - |
 | Python report | Ready |
-| SQLite storage | Planned |
+| SQLite storage | Ready |
 | Turso cloud database | Planned |
 | Web app | Planned |
 | Scheduled updates | Planned |
