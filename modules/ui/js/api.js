@@ -6,6 +6,13 @@
  */
 
 /**
+ * @typedef {object} PoolHistoryRow
+ * @property {string} day
+ * @property {string} symbol
+ * @property {number | null} totalAssets
+ */
+
+/**
  * @file Read the latest snapshot from Turso over HTTP.
  */
 
@@ -193,5 +200,24 @@
     }));
   };
 
-  ns.api = { fetchLatest, fetchHistory };
+  /**
+   * Read every day of the Pool table, oldest first.
+   * @returns {Promise<PoolHistoryRow[]>}
+   */
+  const fetchPoolHistory = async () => {
+    const rows = await query(
+      `SELECT substr(fetched_at, 1, 10) AS day, symbol, total_assets
+       FROM Pool
+       ORDER BY day ASC, symbol ASC`,
+      [],
+    );
+
+    return rows.map((row) => ({
+      day: String(row[0] ?? ""),
+      symbol: String(row[1] ?? ""),
+      totalAssets: /** @type {number | null} */ (row[2]),
+    }));
+  };
+
+  ns.api = { fetchLatest, fetchHistory, fetchPoolHistory };
 })();

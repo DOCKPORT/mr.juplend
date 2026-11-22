@@ -1,5 +1,13 @@
 /**
- * @file Draw the Total APY history line chart.
+ * @file Draw the history line charts.
+ */
+
+/**
+ * @typedef {object} SeriesRow
+ * @property {string} day
+ * @property {string} symbol
+ * @property {number | null} [totalApy]
+ * @property {number | null} [totalAssets]
  */
 
 (() => {
@@ -24,8 +32,8 @@
   /** Fallback colors for a new symbol. */
   const PALETTE = ["#ffd166", "#ff9f43", "#c084fc", "#34d399"];
 
-  /** @type {unknown} */
-  let chartInstance = null;
+  /** @type {Map<string, unknown>} */
+  const instances = new Map();
 
   /**
    * Find a required element by id.
@@ -59,11 +67,43 @@
   };
 
   /**
+   * Format a percent value.
+   * @param {number} value
+   * @returns {string}
+   */
+  const formatPercent = (value) =>
+    Number.isFinite(value) ? `${value.toFixed(2)}%` : "\u2014";
+
+  /**
+   * Format a token amount.
+   * @param {number} value
+   * @returns {string}
+   */
+  const formatAmount = (value) => {
+    if (!Number.isFinite(value)) {
+      return "\u2014";
+    }
+    const units = [
+      ["T", 1e12],
+      ["B", 1e9],
+      ["M", 1e6],
+      ["K", 1e3],
+    ];
+    for (const [suffix, size] of units) {
+      if (Math.abs(value) >= size) {
+        return `${(value / size).toFixed(2)}${suffix}`;
+      }
+    }
+    return value.toFixed(2);
+  };
+
+  /**
    * Build labels and datasets from history rows.
-   * @param {HistoryRow[]} rows
+   * @param {SeriesRow[]} rows
+   * @param {string} valueKey
    * @returns {{ days: string[], datasets: object[] }}
    */
-  const buildSeries = (rows) => {
+  const buildSeries = (rows, valueKey) => {
     const days = [...new Set(rows.map((row) => row.day))].sort();
     /** @type {Map<string, Map<string, number | null>>} */
     const values = new Map();
@@ -72,13 +112,17 @@
       if (!values.has(row.symbol)) {
         values.set(row.symbol, new Map());
       }
-      values.get(row.symbol)?.set(row.day, row.totalApy);
+      const value = row[valueKey];
+      values
+        .get(row.symbol)
+        ?.set(row.day, typeof value === "number" ? value : null);
     }
 
     const datasets = [];
     let index = 0;
     for (const [symbol, points] of values) {
-      const color = COLORS[symbol.toUpperCase()] || PALETTE[index % PALETTE.length];
+      const color =
+        COLORS[symbol.toUpperCase()] || PALETTE[index % PALETTE.length];
       datasets.push({
         label: symbol,
         data: days.map((day) => (points.has(day) ? points.get(day) : null)),
@@ -111,27 +155,45 @@
     };
 
     datasets.sort((left, right) => latest(right) - latest(left));
-
     return { days, datasets };
   };
 
   /**
-   * Draw the chart from history rows.
-   * @param {HistoryRow[]} rows
+   * Draw one line chart.
+   * @param {object} options
+   * @param {string} options.canvasId
+   * @param {string} options.emptyId
+   * @param {SeriesRow[]} options.rows
+   * @param {string} options.valueKey
+   * @param {(value: number) => string} options.formatValue
+   * @param {(value: number) => string} options.formatTick
    * @returns {void}
    */
-  const render = (rows) => {
+  const renderLineChart = ({
+    canvasId,
+    emptyId,
+    rows,
+    valueKey,
+    formatValue,
+    formatTick,
+  }) => {
     const canvas = /** @type {HTMLCanvasElement | null} */ (
-      document.getElementById("rates-chart")
+      document.getElementById(canvasId)
     );
-    const empty = requireElement("chart-empty");
+    const empty = requireElement(emptyId);
     if (!(canvas instanceof HTMLCanvasElement)) {
-      throw new Error("Missing element #rates-chart.");
+      throw new Error(`Missing element #${canvasId}.`);
     }
 
     const ChartCtor = page.Chart;
     if (typeof ChartCtor !== "function") {
       throw new Error("The chart library did not load.");
+    }
+
+    const previous = instances.get(canvasId);
+    if (previous instanceof ChartCtor) {
+      previous.destroy();
+      instances.delete(canvasId);
     }
 
     if (!rows.length) {
@@ -143,13 +205,8 @@
     canvas.hidden = false;
     empty.hidden = true;
 
-    const { days, datasets } = buildSeries(rows);
-
-    if (chartInstance instanceof ChartCtor) {
-      chartInstance.destroy();
-    }
-
-    chartInstance = new ChartCtor(canvas, {
+    const { days, datasets } = buildSeries(rows, valueKey);
+    const chart = new ChartCtor(canvas, {
       type: "line",
       data: { labels: days.map(formatDay), datasets },
       options: {
@@ -175,11 +232,10 @@
               return rightValue - leftValue;
             },
             callbacks: {
-              label: (context) => {
-                const value = Number(context.parsed.y);
-                const text = Number.isFinite(value) ? value.toFixed(2) : "\u2014";
-                return `${context.dataset.label}: ${text}%`;
-              },
+              label: (context) =>
+                `${context.dataset.label}: ${formatValue(
+                  Number(context.parsed.y),
+                )}`,
             },
           },
         },
@@ -192,13 +248,46 @@
             grid: { color: "rgba(198, 198, 205, 0.08)" },
             ticks: {
               color: "#86868f",
-              callback: (value) => `${Number(value).toFixed(1)}%`,
+              callback: (value) => formatTick(Number(value)),
             },
           },
         },
       },
     });
+    instances.set(canvasId, chart);
   };
 
-  ns.chart = { render };
+  /**
+   * Draw the Total APY history chart.
+   * @param {SeriesRow[]} rows
+   * @returns {void}
+   */
+  const renderRates = (rows) => {
+    renderLineChart({
+      canvasId: "rates-chart",
+      emptyId: "chart-empty",
+      rows,
+      valueKey: "totalApy",
+      formatValue: formatPercent,
+      formatTick: (value) => `${value.toFixed(1)}%`,
+    });
+  };
+
+  /**
+   * Draw the Total Assets history chart.
+   * @param {SeriesRow[]} rows
+   * @returns {void}
+   */
+  const renderPool = (rows) => {
+    renderLineChart({
+      canvasId: "pool-chart",
+      emptyId: "pool-chart-empty",
+      rows,
+      valueKey: "totalAssets",
+      formatValue: formatAmount,
+      formatTick: formatAmount,
+    });
+  };
+
+  ns.chart = { renderRates, renderPool };
 })();

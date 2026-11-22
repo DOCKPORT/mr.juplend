@@ -42,12 +42,13 @@
   };
 
   /**
+   * @param {string} id
    * @param {string} text
    * @param {"info" | "error"} [tone]
    * @returns {void}
    */
-  const setChartStatus = (text, tone = "info") => {
-    const node = document.getElementById("chart-status");
+  const setChartStatus = (id, text, tone = "info") => {
+    const node = document.getElementById(id);
     if (node instanceof HTMLElement) {
       node.textContent = text;
       node.dataset.tone = tone;
@@ -95,13 +96,13 @@
     const config = /** @type {{ readToken?: string } | undefined} */ (
       ns.config
     );
-    const api = /** @type {{ fetchLatest: () => Promise<Snapshot>, fetchHistory: () => Promise<HistoryRow[]> } | undefined} */ (
+    const api = /** @type {{ fetchLatest: () => Promise<Snapshot>, fetchHistory: () => Promise<HistoryRow[]>, fetchPoolHistory: () => Promise<PoolHistoryRow[]> } | undefined} */ (
       ns.api
     );
     const render = /** @type {{ renderAll: (rows: SnapshotRow[]) => void } | undefined} */ (
       ns.render
     );
-    const chart = /** @type {{ render: (rows: HistoryRow[]) => void } | undefined} */ (
+    const chart = /** @type {{ renderRates: (rows: HistoryRow[]) => void, renderPool: (rows: PoolHistoryRow[]) => void } | undefined} */ (
       ns.chart
     );
 
@@ -118,15 +119,19 @@
         "error",
       );
       render.renderAll([]);
+      chart?.renderRates([]);
+      chart?.renderPool([]);
       return;
     }
 
     setStatus("Loading the latest snapshot.");
     try {
-      const [snapshotResult, historyResult] = await Promise.allSettled([
-        api.fetchLatest(),
-        api.fetchHistory(),
-      ]);
+      const [snapshotResult, historyResult, poolHistoryResult] =
+        await Promise.allSettled([
+          api.fetchLatest(),
+          api.fetchHistory(),
+          api.fetchPoolHistory(),
+        ]);
       if (snapshotResult.status === "rejected") {
         throw snapshotResult.reason;
       }
@@ -143,12 +148,26 @@
 
       if (historyResult.status === "fulfilled") {
         if (chart) {
-          chart.render(historyResult.value);
+          chart.renderRates(historyResult.value);
         }
-        setChartStatus("");
+        setChartStatus("chart-status", "");
       } else {
         console.error(historyResult.reason);
-        setChartStatus("History failed to load.", "error");
+        setChartStatus("chart-status", "History failed to load.", "error");
+      }
+
+      if (poolHistoryResult.status === "fulfilled") {
+        if (chart) {
+          chart.renderPool(poolHistoryResult.value);
+        }
+        setChartStatus("pool-chart-status", "");
+      } else {
+        console.error(poolHistoryResult.reason);
+        setChartStatus(
+          "pool-chart-status",
+          "History failed to load.",
+          "error",
+        );
       }
 
       setAppState("ready");
@@ -159,7 +178,8 @@
         error instanceof Error ? error.message : "The snapshot failed to load.",
         "error",
       );
-      setChartStatus("History failed to load.", "error");
+      setChartStatus("chart-status", "History failed to load.", "error");
+      setChartStatus("pool-chart-status", "History failed to load.", "error");
     }
   };
 
