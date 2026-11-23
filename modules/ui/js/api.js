@@ -64,6 +64,60 @@
   const page = window;
   const ns = page.MRJUPLEND || (page.MRJUPLEND = {});
 
+  /** Plot history table assets, in column order. */
+  const PLOT_SYMBOLS = [
+    "USDC",
+    "USDT",
+    "USDS",
+    "USDG",
+    "USDGO",
+    "JupUSD",
+    "SOL",
+    "EURC",
+  ];
+
+  const PLOT_COLUMNS =
+    "usdc, usdt, usds, usdg, usdgo, jupusd, sol, eurc";
+
+  /**
+   * Expand plot history rows into one row per asset.
+   * @param {unknown[][]} rows
+   * @param {string} valueKey
+   * @returns {object[]}
+   */
+  const expandPlot = (rows, valueKey) =>
+    rows.flatMap((row) => {
+      const timestamp = String(row[0] ?? "");
+      const day = timestamp.slice(0, 10);
+      return PLOT_SYMBOLS.map((symbol, index) => ({
+        day,
+        symbol,
+        [valueKey]: /** @type {number | null} */ (row[index + 1]),
+      }));
+    });
+
+  /**
+   * Read one plot history table.
+   * @param {string} table
+   * @param {string} valueKey
+   * @param {() => Promise<object[]>} fallback
+   * @returns {Promise<object[]>}
+   */
+  const fetchPlotHistory = async (table, valueKey, fallback) => {
+    try {
+      const rows = await query(
+        `SELECT fetched_at, ${PLOT_COLUMNS} FROM ${table} ORDER BY fetched_at ASC`,
+        [],
+      );
+      if (rows.length) {
+        return expandPlot(rows, valueKey);
+      }
+    } catch (error) {
+      // The plot table may not exist yet. Use the normalized query.
+    }
+    return fallback();
+  };
+
   /** Convert libsql and turso URLs to the HTTPS API URL. */
   const httpUrl = (url) => {
     const clean = String(url || "")
@@ -152,7 +206,7 @@
 
     if (!day) {
       const dayRows = await query(
-        "SELECT MAX(substr(fetched_at, 1, 10)) AS day FROM Rates",
+        "SELECT MAX(substr(fetched_at, 1, 10)) AS day FROM RatesBank",
         [],
       );
       day = dayRows.length && dayRows[0].length ? dayRows[0][0] : null;
@@ -170,10 +224,10 @@
          p.shares_per_asset, p.campaigns,
          l.earn_supply, l.collateral_supply, l.total_liquidity_supply,
          l.total_borrowed, l.utilization
-       FROM Rates r
-       LEFT JOIN Pool p
+       FROM RatesBank r
+       LEFT JOIN PoolBank p
          ON p.symbol = r.symbol AND substr(p.fetched_at, 1, 10) = ?
-       LEFT JOIN Liquidity l
+       LEFT JOIN LiquidityBank l
          ON l.symbol = r.symbol AND substr(l.fetched_at, 1, 10) = ?
        WHERE substr(r.fetched_at, 1, 10) = ?
        ORDER BY r.total_apy DESC`,
@@ -212,61 +266,64 @@
   };
 
   /**
-   * Read every day of the Rates table, oldest first.
+   * Read every day of the RatesBank table, oldest first.
    * @returns {Promise<HistoryRow[]>}
    */
-  const fetchHistory = async () => {
-    const rows = await query(
-      `SELECT substr(fetched_at, 1, 10) AS day, symbol, total_apy
-       FROM Rates
-       ORDER BY day ASC, symbol ASC`,
-      [],
-    );
+  const fetchHistory = () =>
+    fetchPlotHistory("RatesTotalAPYPlot", "totalApy", async () => {
+      const rows = await query(
+        `SELECT substr(fetched_at, 1, 10) AS day, symbol, total_apy
+         FROM RatesBank
+         ORDER BY day ASC, symbol ASC`,
+        [],
+      );
 
-    return rows.map((row) => ({
-      day: String(row[0] ?? ""),
-      symbol: String(row[1] ?? ""),
-      totalApy: /** @type {number | null} */ (row[2]),
-    }));
-  };
+      return rows.map((row) => ({
+        day: String(row[0] ?? ""),
+        symbol: String(row[1] ?? ""),
+        totalApy: /** @type {number | null} */ (row[2]),
+      }));
+    });
 
   /**
-   * Read every day of the Pool table, oldest first.
+   * Read every day of the PoolBank table, oldest first.
    * @returns {Promise<PoolHistoryRow[]>}
    */
-  const fetchPoolHistory = async () => {
-    const rows = await query(
-      `SELECT substr(fetched_at, 1, 10) AS day, symbol, total_assets
-       FROM Pool
-       ORDER BY day ASC, symbol ASC`,
-      [],
-    );
+  const fetchPoolHistory = () =>
+    fetchPlotHistory("PoolTotalAssetsPlot", "totalAssets", async () => {
+      const rows = await query(
+        `SELECT substr(fetched_at, 1, 10) AS day, symbol, total_assets
+         FROM PoolBank
+         ORDER BY day ASC, symbol ASC`,
+        [],
+      );
 
-    return rows.map((row) => ({
-      day: String(row[0] ?? ""),
-      symbol: String(row[1] ?? ""),
-      totalAssets: /** @type {number | null} */ (row[2]),
-    }));
-  };
+      return rows.map((row) => ({
+        day: String(row[0] ?? ""),
+        symbol: String(row[1] ?? ""),
+        totalAssets: /** @type {number | null} */ (row[2]),
+      }));
+    });
 
   /**
-   * Read every day of the Liquidity table, oldest first.
+   * Read every day of the LiquidityBank table, oldest first.
    * @returns {Promise<LiquidityHistoryRow[]>}
    */
-  const fetchLiquidityHistory = async () => {
-    const rows = await query(
-      `SELECT substr(fetched_at, 1, 10) AS day, symbol, utilization
-       FROM Liquidity
-       ORDER BY day ASC, symbol ASC`,
-      [],
-    );
+  const fetchLiquidityHistory = () =>
+    fetchPlotHistory("LiquidityUtilizationPlot", "utilization", async () => {
+      const rows = await query(
+        `SELECT substr(fetched_at, 1, 10) AS day, symbol, utilization
+         FROM LiquidityBank
+         ORDER BY day ASC, symbol ASC`,
+        [],
+      );
 
-    return rows.map((row) => ({
-      day: String(row[0] ?? ""),
-      symbol: String(row[1] ?? ""),
-      utilization: /** @type {number | null} */ (row[2]),
-    }));
-  };
+      return rows.map((row) => ({
+        day: String(row[0] ?? ""),
+        symbol: String(row[1] ?? ""),
+        utilization: /** @type {number | null} */ (row[2]),
+      }));
+    });
 
   /** The Treasury series file. */
   const BOND_URL =

@@ -7,97 +7,19 @@ import os
 import sqlite3
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Final
+from typing import Final
 
-from . import turso
+from . import bank_db, meta_db, plot_db, turso
 from .report import TokenRow
 
 DB_PATH: Final[Path] = (
     Path(__file__).resolve().parent.parent / "data" / "mrjuplend.db"
 )
 
-DELETE_SQL: Final[str] = (
-    "DELETE FROM {table} WHERE substr(fetched_at, 1, 10) = ?"
-)
-
-RATES_INSERT: Final[str] = """
-    INSERT INTO Rates (
-        fetched_at, symbol, name,
-        supply_apy, rewards_apy, total_apy, borrow_apy
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-"""
-
-POOL_INSERT: Final[str] = """
-    INSERT INTO Pool (
-        fetched_at, symbol,
-        total_assets, total_supply,
-        assets_per_share, shares_per_asset, campaigns
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-"""
-
-LIQUIDITY_INSERT: Final[str] = """
-    INSERT INTO Liquidity (
-        fetched_at, symbol,
-        earn_supply, collateral_supply, total_liquidity_supply,
-        total_borrowed, utilization
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-"""
-
-META_UPSERT: Final[str] = """
-    INSERT INTO Meta (id, latest_day, latest_fetched_at)
-    VALUES (1, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
-        latest_day = excluded.latest_day,
-        latest_fetched_at = excluded.latest_fetched_at
-"""
-
 SCHEMA: Final[tuple[str, ...]] = (
-    """
-    CREATE TABLE IF NOT EXISTS Meta (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        latest_day TEXT NOT NULL,
-        latest_fetched_at TEXT NOT NULL
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS Rates (
-        fetched_at TEXT NOT NULL,
-        symbol TEXT NOT NULL,
-        name TEXT NOT NULL,
-        supply_apy REAL NOT NULL,
-        rewards_apy REAL NOT NULL,
-        total_apy REAL NOT NULL,
-        borrow_apy REAL
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS Pool (
-        fetched_at TEXT NOT NULL,
-        symbol TEXT NOT NULL,
-        total_assets REAL NOT NULL,
-        total_supply REAL NOT NULL,
-        assets_per_share REAL,
-        shares_per_asset REAL,
-        campaigns INTEGER NOT NULL
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS Liquidity (
-        fetched_at TEXT NOT NULL,
-        symbol TEXT NOT NULL,
-        earn_supply REAL NOT NULL,
-        collateral_supply REAL NOT NULL,
-        total_liquidity_supply REAL NOT NULL,
-        total_borrowed REAL NOT NULL,
-        utilization REAL
-    )
-    """,
-    "CREATE UNIQUE INDEX IF NOT EXISTS Rates_day_symbol "
-    "ON Rates(substr(fetched_at, 1, 10), symbol)",
-    "CREATE UNIQUE INDEX IF NOT EXISTS Pool_day_symbol "
-    "ON Pool(substr(fetched_at, 1, 10), symbol)",
-    "CREATE UNIQUE INDEX IF NOT EXISTS Liquidity_day_symbol "
-    "ON Liquidity(substr(fetched_at, 1, 10), symbol)",
+    meta_db.SCHEMA,
+    *bank_db.SCHEMA,
+    *plot_db.SCHEMA,
 )
 
 
@@ -110,95 +32,40 @@ def connect(db_path: Path) -> sqlite3.Connection:
 
 
 def init_schema(connection: sqlite3.Connection) -> None:
-    """Create the three snapshot tables if they do not exist."""
+    """Create the tables if they do not exist."""
     for statement in SCHEMA:
         connection.execute(statement)
     connection.commit()
 
 
-def rates_values(
-    rows: Sequence[TokenRow], fetched_at: str
-) -> list[tuple[Any, ...]]:
-    """Return the Rates insert values."""
-    return [
-        (
-            fetched_at,
-            row.symbol,
-            row.name,
-            row.supply_apy,
-            row.rewards_apy,
-            row.total_apy,
-            row.borrow_apy,
-        )
-        for row in rows
-    ]
-
-
-def pool_values(rows: Sequence[TokenRow], fetched_at: str) -> list[tuple[Any, ...]]:
-    """Return the Pool insert values."""
-    return [
-        (
-            fetched_at,
-            row.symbol,
-            row.total_assets,
-            row.total_supply,
-            row.assets_per_share,
-            row.shares_per_asset,
-            row.campaigns,
-        )
-        for row in rows
-    ]
-
-
-def liquidity_values(
-    rows: Sequence[TokenRow], fetched_at: str
-) -> list[tuple[Any, ...]]:
-    """Return the Liquidity insert values."""
-    return [
-        (
-            fetched_at,
-            row.symbol,
-            row.earn_supply,
-            row.collateral_supply,
-            row.total_liquidity_supply,
-            row.total_borrowed,
-            row.utilization,
-        )
-        for row in rows
-    ]
-
-
 def has_snapshot(connection: sqlite3.Connection, snapshot_date: str) -> bool:
     """Return True when the date already has stored rows."""
     row = connection.execute(
-        "SELECT 1 FROM Rates WHERE substr(fetched_at, 1, 10) = ? LIMIT 1",
-        (snapshot_date,),
+        bank_db.HAS_SNAPSHOT_SQL, (snapshot_date,)
     ).fetchone()
     return row is not None
 
 
-def upsert_meta(
-    connection: sqlite3.Connection, snapshot_date: str, fetched_at: str
-) -> None:
-    """Point Meta at the newest snapshot."""
-    connection.execute(META_UPSERT, (snapshot_date, fetched_at))
-
-
-def backfill_meta(connection: sqlite3.Connection) -> None:
-    """Fill Meta once from the newest Rates row."""
-    existing = connection.execute(
-        "SELECT 1 FROM Meta WHERE id = 1 LIMIT 1"
+def plot_needs_backfill(connection: sqlite3.Connection) -> bool:
+    """Return True when a normalized day has no plot row."""
+    normalized = connection.execute(
+        "SELECT COUNT(DISTINCT substr(fetched_at, 1, 10)) FROM RatesBank"
     ).fetchone()
-    if existing is not None:
+    plot_rows = connection.execute(
+        "SELECT COUNT(*) FROM RatesTotalAPYPlot"
+    ).fetchone()
+    if normalized is None or plot_rows is None:
+        return False
+    return int(normalized[0]) > int(plot_rows[0])
+
+
+def backfill_plots(connection: sqlite3.Connection) -> None:
+    """Fill the plot tables once from the bank tables."""
+    if not plot_needs_backfill(connection):
         return
-
-    latest = connection.execute(
-        "SELECT fetched_at FROM Rates ORDER BY fetched_at DESC LIMIT 1"
-    ).fetchone()
-    if latest is not None and latest[0]:
-        timestamp = str(latest[0])
-        upsert_meta(connection, timestamp[:10], timestamp)
-        connection.commit()
+    for statement in plot_db.PLOT_BACKFILL:
+        connection.execute(statement)
+    connection.commit()
 
 
 def save_snapshot(
@@ -221,15 +88,39 @@ def save_snapshot(
         return "kept"
 
     with connection:
-        for table in ("Rates", "Pool", "Liquidity"):
-            connection.execute(DELETE_SQL.format(table=table), (snapshot_date,))
+        for table in bank_db.TABLES:
+            connection.execute(
+                bank_db.DELETE_SQL.format(table=table), (snapshot_date,)
+            )
 
-        connection.executemany(RATES_INSERT, rates_values(rows, fetched_at))
-        connection.executemany(POOL_INSERT, pool_values(rows, fetched_at))
         connection.executemany(
-            LIQUIDITY_INSERT, liquidity_values(rows, fetched_at)
+            bank_db.RATES_INSERT, bank_db.rates_values(rows, fetched_at)
         )
-        upsert_meta(connection, snapshot_date, fetched_at)
+        connection.executemany(
+            bank_db.POOL_INSERT, bank_db.pool_values(rows, fetched_at)
+        )
+        connection.executemany(
+            bank_db.LIQUIDITY_INSERT,
+            bank_db.liquidity_values(rows, fetched_at),
+        )
+
+        for table in plot_db.TABLES:
+            connection.execute(
+                plot_db.DELETE_SQL.format(table=table), (snapshot_date,)
+            )
+        connection.execute(
+            plot_db.RATES_PLOT_INSERT,
+            (fetched_at, *plot_db.plot_values(rows, "total_apy")),
+        )
+        connection.execute(
+            plot_db.POOL_PLOT_INSERT,
+            (fetched_at, *plot_db.plot_values(rows, "total_assets")),
+        )
+        connection.execute(
+            plot_db.LIQUIDITY_PLOT_INSERT,
+            (fetched_at, *plot_db.plot_values(rows, "utilization")),
+        )
+        meta_db.upsert(connection, snapshot_date, fetched_at)
     return "saved"
 
 
@@ -260,9 +151,10 @@ class LocalStore:
         self.connection = connect(db_path)
 
     def init_schema(self) -> None:
-        """Create the tables and backfill Meta once."""
+        """Create the tables and backfill the read tables once."""
         init_schema(self.connection)
-        backfill_meta(self.connection)
+        meta_db.backfill(self.connection)
+        backfill_plots(self.connection)
 
     def save_snapshot(
         self, rows: Sequence[TokenRow], fetched_at: str, complete: bool = True
@@ -285,37 +177,42 @@ class TursoStore:
         self.token = token
 
     def init_schema(self) -> None:
-        """Create the tables and backfill Meta once."""
+        """Create the tables and backfill the read tables once."""
         for statement in SCHEMA:
             turso.execute(self.url, self.token, statement)
 
-        existing = turso.execute(
-            self.url, self.token, "SELECT 1 FROM Meta WHERE id = 1 LIMIT 1"
-        )
-        if existing:
-            return
+        existing = turso.execute(self.url, self.token, meta_db.EXISTS_SQL)
+        if not existing:
+            latest = turso.execute(self.url, self.token, meta_db.LATEST_SQL)
+            if latest and latest[0][0]:
+                timestamp = str(latest[0][0])
+                turso.execute(
+                    self.url,
+                    self.token,
+                    meta_db.UPSERT_SQL,
+                    (timestamp[:10], timestamp),
+                )
 
-        latest = turso.execute(
+        normalized = turso.execute(
             self.url,
             self.token,
-            "SELECT fetched_at FROM Rates ORDER BY fetched_at DESC LIMIT 1",
+            "SELECT COUNT(DISTINCT substr(fetched_at, 1, 10)) FROM RatesBank",
         )
-        if latest and latest[0][0]:
-            timestamp = str(latest[0][0])
-            turso.execute(
-                self.url,
-                self.token,
-                META_UPSERT,
-                (timestamp[:10], timestamp),
-            )
+        plot_rows = turso.execute(
+            self.url, self.token, "SELECT COUNT(*) FROM RatesTotalAPYPlot"
+        )
+        if (
+            normalized
+            and plot_rows
+            and int(normalized[0][0]) > int(plot_rows[0][0])
+        ):
+            for statement in plot_db.PLOT_BACKFILL:
+                turso.execute(self.url, self.token, statement)
 
     def has_snapshot(self, snapshot_date: str) -> bool:
         """Return True when the date already has stored rows."""
         rows = turso.execute(
-            self.url,
-            self.token,
-            "SELECT 1 FROM Rates WHERE substr(fetched_at, 1, 10) = ? LIMIT 1",
-            (snapshot_date,),
+            self.url, self.token, bank_db.HAS_SNAPSHOT_SQL, (snapshot_date,)
         )
         return bool(rows)
 
@@ -331,22 +228,51 @@ class TursoStore:
             return "kept"
 
         statements = [
-            turso.statement(DELETE_SQL.format(table=table), (snapshot_date,))
-            for table in ("Rates", "Pool", "Liquidity")
+            turso.statement(
+                bank_db.DELETE_SQL.format(table=table), (snapshot_date,)
+            )
+            for table in bank_db.TABLES
         ]
         statements.extend(
-            turso.statement(RATES_INSERT, values)
-            for values in rates_values(rows, fetched_at)
+            turso.statement(bank_db.RATES_INSERT, values)
+            for values in bank_db.rates_values(rows, fetched_at)
         )
         statements.extend(
-            turso.statement(POOL_INSERT, values)
-            for values in pool_values(rows, fetched_at)
+            turso.statement(bank_db.POOL_INSERT, values)
+            for values in bank_db.pool_values(rows, fetched_at)
         )
         statements.extend(
-            turso.statement(LIQUIDITY_INSERT, values)
-            for values in liquidity_values(rows, fetched_at)
+            turso.statement(bank_db.LIQUIDITY_INSERT, values)
+            for values in bank_db.liquidity_values(rows, fetched_at)
         )
-        statements.append(turso.statement(META_UPSERT, (snapshot_date, fetched_at)))
+
+        statements.extend(
+            turso.statement(
+                plot_db.DELETE_SQL.format(table=table), (snapshot_date,)
+            )
+            for table in plot_db.TABLES
+        )
+        statements.append(
+            turso.statement(
+                plot_db.RATES_PLOT_INSERT,
+                (fetched_at, *plot_db.plot_values(rows, "total_apy")),
+            )
+        )
+        statements.append(
+            turso.statement(
+                plot_db.POOL_PLOT_INSERT,
+                (fetched_at, *plot_db.plot_values(rows, "total_assets")),
+            )
+        )
+        statements.append(
+            turso.statement(
+                plot_db.LIQUIDITY_PLOT_INSERT,
+                (fetched_at, *plot_db.plot_values(rows, "utilization")),
+            )
+        )
+        statements.append(
+            turso.statement(meta_db.UPSERT_SQL, (snapshot_date, fetched_at))
+        )
         turso.execute_batch(self.url, self.token, statements)
         return "saved"
 
