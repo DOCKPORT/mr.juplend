@@ -68,10 +68,31 @@ main,
 
 .topbar__meta {
   margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.topbar__updated {
   color: var(--text-faint);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  text-align: end;
+}
+
+.topbar__link {
+  display: flex;
+  color: var(--text-faint);
+  opacity: 0.75;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.topbar__link:hover {
+  opacity: 1;
+}
+
+.topbar__icon {
+  inline-size: 24px;
+  block-size: 24px;
 }
 
 /* --- Page status ---------------------------------------------------------- */
@@ -289,6 +310,7 @@ main,
 .footer {
   margin-block-start: auto;
   border-block-start: 1px solid var(--border-subtle);
+  background: var(--bg-page);
 }
 
 .footer__inner {
@@ -301,8 +323,10 @@ main,
   font-size: var(--text-xs);
 }
 
-.footer__note {
+.footer__version {
   color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
 }
 
 .footer .numeric {

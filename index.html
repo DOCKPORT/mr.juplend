@@ -49,7 +49,24 @@
         <a class="brand" href="/">
           <span class="brand__name">Mr. <span>Juplend</span></span>
         </a>
-        <p class="topbar__meta" id="updated">Updated &mdash;</p>
+        <div class="topbar__meta">
+          <p class="topbar__updated" id="updated">Updated &mdash;</p>
+          <a
+            class="topbar__link"
+            href="https://github.com/DOCKPORT/mr.juplend"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Mr. Juplend on GitHub"
+          >
+            <img
+              class="topbar__icon"
+              src="logos/github.svg"
+              alt=""
+              width="24"
+              height="24"
+            />
+          </a>
+        </div>
       </div>
     </header>
 
@@ -210,9 +227,7 @@
     <footer class="footer">
       <div class="container footer__inner">
         <span>Mr. Juplend</span>
-        <span class="footer__note">
-          Unofficial. Data can be late or wrong. Not financial advice.
-        </span>
+        <span class="footer__version" id="footer-version"></span>
         <span class="numeric" id="footer-year"></span>
       </div>
     </footer>
@@ -232,6 +247,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="modules/ui/js/config.js"></script>
+    <script src="modules/ui/js/version.js"></script>
     <script src="modules/ui/js/api.js"></script>
     <script src="modules/ui/js/render.js"></script>
     <script src="modules/ui/js/chart.js"></script>

@@ -83,10 +83,21 @@
   };
 
   /**
+   * @returns {void}
+   */
+  const stampVersion = () => {
+    const node = document.getElementById("footer-version");
+    if (node instanceof HTMLElement && typeof ns.version === "string") {
+      node.textContent = ns.version;
+    }
+  };
+
+  /**
    * @returns {Promise<void>}
    */
   const start = async () => {
     stampYear();
+    stampVersion();
 
     if (window.matchMedia("(max-width: 768px)").matches) {
       setAppState("ready");
