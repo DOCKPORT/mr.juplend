@@ -377,6 +377,19 @@ main,
   font-size: var(--text-xs);
 }
 
+.footer__source {
+  margin-inline: auto;
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  text-decoration: none;
+}
+
+.footer__source:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .footer .numeric {
-  margin-inline-start: auto;
+  font-size: var(--text-xs);
 }

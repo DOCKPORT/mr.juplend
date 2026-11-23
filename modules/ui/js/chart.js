@@ -223,9 +223,12 @@
               boxWidth: 12,
               boxHeight: 2,
               usePointStyle: false,
+              font: { size: 14 },
             },
           },
           tooltip: {
+            titleFont: { size: 14 },
+            bodyFont: { size: 14 },
             itemSort: (left, right) => {
               const a = Number(left.parsed.y);
               const b = Number(right.parsed.y);
@@ -250,6 +253,7 @@
             grid: { color: "rgba(198, 198, 205, 0.08)" },
             ticks: {
               color: "#86868f",
+              font: { size: 13 },
               callback: (value) => formatTick(Number(value)),
             },
           },
