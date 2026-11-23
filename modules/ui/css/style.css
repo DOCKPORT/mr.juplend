@@ -15,7 +15,7 @@
 }
 
 .page-mark img {
-  inline-size: min(70vw, 820px);
+  inline-size: min(85vw, 1050px);
   block-size: auto;
   opacity: 0.09;
   transform: translateX(18%);
