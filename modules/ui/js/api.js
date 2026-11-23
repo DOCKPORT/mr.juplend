@@ -136,11 +136,28 @@
    * @returns {Promise<Snapshot>}
    */
   const fetchLatest = async () => {
-    const dayRows = await query(
-      "SELECT MAX(substr(fetched_at, 1, 10)) AS day FROM Rates",
-      [],
-    );
-    const day = dayRows.length && dayRows[0].length ? dayRows[0][0] : null;
+    let day = null;
+
+    try {
+      const metaRows = await query(
+        "SELECT latest_day FROM Meta WHERE id = 1",
+        [],
+      );
+      if (metaRows.length && metaRows[0].length) {
+        day = metaRows[0][0];
+      }
+    } catch (error) {
+      day = null;
+    }
+
+    if (!day) {
+      const dayRows = await query(
+        "SELECT MAX(substr(fetched_at, 1, 10)) AS day FROM Rates",
+        [],
+      );
+      day = dayRows.length && dayRows[0].length ? dayRows[0][0] : null;
+    }
+
     if (!day) {
       return { day: null, fetchedAt: null, rows: [] };
     }

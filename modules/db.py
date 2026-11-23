@@ -43,7 +43,22 @@ LIQUIDITY_INSERT: Final[str] = """
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
 """
 
+META_UPSERT: Final[str] = """
+    INSERT INTO Meta (id, latest_day, latest_fetched_at)
+    VALUES (1, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+        latest_day = excluded.latest_day,
+        latest_fetched_at = excluded.latest_fetched_at
+"""
+
 SCHEMA: Final[tuple[str, ...]] = (
+    """
+    CREATE TABLE IF NOT EXISTS Meta (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        latest_day TEXT NOT NULL,
+        latest_fetched_at TEXT NOT NULL
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS Rates (
         fetched_at TEXT NOT NULL,
@@ -162,6 +177,30 @@ def has_snapshot(connection: sqlite3.Connection, snapshot_date: str) -> bool:
     return row is not None
 
 
+def upsert_meta(
+    connection: sqlite3.Connection, snapshot_date: str, fetched_at: str
+) -> None:
+    """Point Meta at the newest snapshot."""
+    connection.execute(META_UPSERT, (snapshot_date, fetched_at))
+
+
+def backfill_meta(connection: sqlite3.Connection) -> None:
+    """Fill Meta once from the newest Rates row."""
+    existing = connection.execute(
+        "SELECT 1 FROM Meta WHERE id = 1 LIMIT 1"
+    ).fetchone()
+    if existing is not None:
+        return
+
+    latest = connection.execute(
+        "SELECT fetched_at FROM Rates ORDER BY fetched_at DESC LIMIT 1"
+    ).fetchone()
+    if latest is not None and latest[0]:
+        timestamp = str(latest[0])
+        upsert_meta(connection, timestamp[:10], timestamp)
+        connection.commit()
+
+
 def save_snapshot(
     connection: sqlite3.Connection,
     rows: Sequence[TokenRow],
@@ -190,6 +229,7 @@ def save_snapshot(
         connection.executemany(
             LIQUIDITY_INSERT, liquidity_values(rows, fetched_at)
         )
+        upsert_meta(connection, snapshot_date, fetched_at)
     return "saved"
 
 
@@ -220,8 +260,9 @@ class LocalStore:
         self.connection = connect(db_path)
 
     def init_schema(self) -> None:
-        """Create the tables."""
+        """Create the tables and backfill Meta once."""
         init_schema(self.connection)
+        backfill_meta(self.connection)
 
     def save_snapshot(
         self, rows: Sequence[TokenRow], fetched_at: str, complete: bool = True
@@ -244,9 +285,29 @@ class TursoStore:
         self.token = token
 
     def init_schema(self) -> None:
-        """Create the tables."""
+        """Create the tables and backfill Meta once."""
         for statement in SCHEMA:
             turso.execute(self.url, self.token, statement)
+
+        existing = turso.execute(
+            self.url, self.token, "SELECT 1 FROM Meta WHERE id = 1 LIMIT 1"
+        )
+        if existing:
+            return
+
+        latest = turso.execute(
+            self.url,
+            self.token,
+            "SELECT fetched_at FROM Rates ORDER BY fetched_at DESC LIMIT 1",
+        )
+        if latest and latest[0][0]:
+            timestamp = str(latest[0][0])
+            turso.execute(
+                self.url,
+                self.token,
+                META_UPSERT,
+                (timestamp[:10], timestamp),
+            )
 
     def has_snapshot(self, snapshot_date: str) -> bool:
         """Return True when the date already has stored rows."""
@@ -285,6 +346,7 @@ class TursoStore:
             turso.statement(LIQUIDITY_INSERT, values)
             for values in liquidity_values(rows, fetched_at)
         )
+        statements.append(turso.statement(META_UPSERT, (snapshot_date, fetched_at)))
         turso.execute_batch(self.url, self.token, statements)
         return "saved"
 
