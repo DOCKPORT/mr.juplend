@@ -20,6 +20,12 @@
  */
 
 /**
+ * @typedef {object} BondYield
+ * @property {number | null} value
+ * @property {string | null} date
+ */
+
+/**
  * @file Read the latest snapshot from Turso over HTTP.
  */
 
@@ -245,10 +251,35 @@
     }));
   };
 
+  /** The Treasury series file. */
+  const BOND_URL =
+    "https://raw.githubusercontent.com/DOCKPORT/Ez-Fred/main/Data/ustreasuries.json";
+
+  /**
+   * Read the latest 1-year Treasury yield. Nothing is stored.
+   * @returns {Promise<BondYield>}
+   */
+  const fetchBondYield = async () => {
+    const response = await fetch(BOND_URL, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Bond data returned HTTP ${response.status}.`);
+    }
+
+    const payload = await response.json();
+    const latest = payload?.series?.DGS1?.latest;
+    const value = Number(latest?.value);
+
+    return {
+      value: Number.isFinite(value) ? value : null,
+      date: typeof latest?.date === "string" ? latest.date : null,
+    };
+  };
+
   ns.api = {
     fetchLatest,
     fetchHistory,
     fetchPoolHistory,
     fetchLiquidityHistory,
+    fetchBondYield,
   };
 })();

@@ -107,7 +107,7 @@
     const config = /** @type {{ readToken?: string } | undefined} */ (
       ns.config
     );
-    const api = /** @type {{ fetchLatest: () => Promise<Snapshot>, fetchHistory: () => Promise<HistoryRow[]>, fetchPoolHistory: () => Promise<PoolHistoryRow[]>, fetchLiquidityHistory: () => Promise<LiquidityHistoryRow[]> } | undefined} */ (
+    const api = /** @type {{ fetchLatest: () => Promise<Snapshot>, fetchHistory: () => Promise<HistoryRow[]>, fetchPoolHistory: () => Promise<PoolHistoryRow[]>, fetchLiquidityHistory: () => Promise<LiquidityHistoryRow[]>, fetchBondYield: () => Promise<BondYield> } | undefined} */ (
       ns.api
     );
     const render = /** @type {{ renderAll: (rows: SnapshotRow[]) => void } | undefined} */ (
@@ -115,6 +115,9 @@
     );
     const chart = /** @type {{ renderRates: (rows: HistoryRow[]) => void, renderPool: (rows: PoolHistoryRow[]) => void, renderLiquidity: (rows: LiquidityHistoryRow[]) => void } | undefined} */ (
       ns.chart
+    );
+    const benchmark = /** @type {{ render: (rows: SnapshotRow[], bond: BondYield, day: string | null) => void } | undefined} */ (
+      ns.benchmark
     );
 
     if (!api || !render) {
@@ -133,18 +136,25 @@
       chart?.renderRates([]);
       chart?.renderPool([]);
       chart?.renderLiquidity([]);
+      benchmark?.render([], { value: null, date: null }, null);
       return;
     }
 
     setStatus("Loading the latest snapshot.");
     try {
-      const [snapshotResult, historyResult, poolHistoryResult, liquidityHistoryResult] =
-        await Promise.allSettled([
-          api.fetchLatest(),
-          api.fetchHistory(),
-          api.fetchPoolHistory(),
-          api.fetchLiquidityHistory(),
-        ]);
+      const [
+        snapshotResult,
+        historyResult,
+        poolHistoryResult,
+        liquidityHistoryResult,
+        bondResult,
+      ] = await Promise.allSettled([
+        api.fetchLatest(),
+        api.fetchHistory(),
+        api.fetchPoolHistory(),
+        api.fetchLiquidityHistory(),
+        api.fetchBondYield(),
+      ]);
       if (snapshotResult.status === "rejected") {
         throw snapshotResult.reason;
       }
@@ -156,7 +166,7 @@
       if (!snapshot.rows.length) {
         setStatus("The database has no snapshot yet.");
       } else {
-        setStatus(`Snapshot ${snapshot.day}. ${snapshot.rows.length} assets.`);
+        setStatus("");
       }
 
       if (historyResult.status === "fulfilled") {
@@ -196,6 +206,15 @@
           "error",
         );
       }
+
+      const bond =
+        bondResult.status === "fulfilled"
+          ? bondResult.value
+          : { value: null, date: null };
+      if (bondResult.status === "rejected") {
+        console.error(bondResult.reason);
+      }
+      benchmark?.render(snapshot.rows, bond, snapshot.day);
 
       setAppState("ready");
     } catch (error) {

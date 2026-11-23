@@ -46,9 +46,9 @@
 
     <header class="topbar">
       <div class="container topbar__inner">
-        <a class="brand" href="/">
+        <div class="brand">
           <span class="brand__name">Mr. <span>Juplend</span></span>
-        </a>
+        </div>
         <div class="topbar__meta">
           <p class="topbar__updated" id="updated">Updated &mdash;</p>
           <a
@@ -121,6 +121,39 @@
           <p class="panel__empty" id="chart-empty" role="status" hidden>
             No history yet.
           </p>
+        </article>
+
+        <article class="panel benchmark-panel">
+          <div class="chart-panel__head">
+            <h3>APY vs 1-year Treasury</h3>
+          </div>
+          <div class="benchmark-grid">
+            <div class="benchmark-stat">
+              <p class="benchmark-stat__label">AVG. JUPLEND TOTAL APY</p>
+              <p class="benchmark-stat__value numeric" id="benchmark-average">
+                &mdash;
+              </p>
+              <p class="benchmark-stat__meta" id="benchmark-snapshot-date">
+                &mdash;
+              </p>
+            </div>
+            <div class="benchmark-stat">
+              <p class="benchmark-stat__label">US 1-year Treasury</p>
+              <p class="benchmark-stat__value numeric" id="benchmark-bond">
+                &mdash;
+              </p>
+              <p class="benchmark-stat__meta" id="benchmark-bond-date">
+                &mdash;
+              </p>
+            </div>
+            <div class="benchmark-stat">
+              <p class="benchmark-stat__label">Spread</p>
+              <p class="benchmark-stat__value numeric" id="benchmark-spread">
+                &mdash;
+              </p>
+              <p class="benchmark-stat__meta">Average minus bond</p>
+            </div>
+          </div>
         </article>
       </section>
 
@@ -251,6 +284,7 @@
     <script src="modules/ui/js/api.js"></script>
     <script src="modules/ui/js/render.js"></script>
     <script src="modules/ui/js/chart.js"></script>
+    <script src="modules/ui/js/benchmark.js"></script>
     <script src="modules/ui/js/main.js"></script>
   </body>
 </html>
