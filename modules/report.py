@@ -50,10 +50,15 @@ def apr_to_apy(apr: float) -> float:
 
 
 def parse_int(value: Any) -> int:
-    """Return an integer from a numeric string, or 0."""
+    """Return an integer from a number or a numeric string, or 0."""
+    text = str(value)
     try:
-        return int(str(value))
+        return int(text)
     except (TypeError, ValueError):
+        pass
+    try:
+        return int(float(text))
+    except (TypeError, ValueError, OverflowError):
         return 0
 
 

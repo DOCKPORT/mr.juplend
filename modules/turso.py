@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import base64
+import sys
+import time
 from collections.abc import Sequence
 from typing import Any, Final
 
@@ -11,6 +13,13 @@ import requests
 
 TIMEOUT_SECONDS: Final[float] = 20.0
 PIPELINE_PATH: Final[str] = "/v2/pipeline"
+
+# Transient status codes. Every call is safe to repeat: reads do not change,
+# and the daily batch deletes the day before it inserts it again.
+RETRY_STATUS: Final[frozenset[int]] = frozenset({429, 502, 503, 504})
+MAX_RETRIES: Final[int] = 2
+RETRY_BASE_SECONDS: Final[float] = 1.0
+RETRY_MAX_SECONDS: Final[float] = 10.0
 
 
 class TursoError(RuntimeError):
@@ -47,6 +56,19 @@ def normalize_url(url: str) -> str:
     return cleaned
 
 
+def backoff_seconds(attempt: int) -> float:
+    """Return the pause before the next try."""
+    return min(RETRY_BASE_SECONDS * (2**attempt), RETRY_MAX_SECONDS)
+
+
+def retry_delay(response: requests.Response, attempt: int) -> float:
+    """Return the pause before the next try, using Retry-After if present."""
+    header = response.headers.get("Retry-After", "").strip()
+    if header.isdigit():
+        return min(float(header), RETRY_MAX_SECONDS)
+    return backoff_seconds(attempt)
+
+
 def send(url: str, token: str, requests_payload: list[dict[str, Any]]) -> list[Any]:
     """Send one pipeline request and return the result list."""
     endpoint = normalize_url(url) + PIPELINE_PATH
@@ -55,15 +77,37 @@ def send(url: str, token: str, requests_payload: list[dict[str, Any]]) -> list[A
         "Content-Type": "application/json",
         "Accept": "application/json",
     }
-    try:
-        response = requests.post(
-            endpoint,
-            json={"requests": requests_payload},
-            headers=headers,
-            timeout=TIMEOUT_SECONDS,
-        )
-    except requests.RequestException as error:
-        raise TursoError(f"Turso request failed: {error}") from error
+    body = {"requests": requests_payload}
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            response = requests.post(
+                endpoint,
+                json=body,
+                headers=headers,
+                timeout=TIMEOUT_SECONDS,
+            )
+        except requests.RequestException as error:
+            if attempt >= MAX_RETRIES:
+                raise TursoError(f"Turso request failed: {error}") from error
+            delay = backoff_seconds(attempt)
+            print(
+                f"Retry {attempt + 1}/{MAX_RETRIES} after a request "
+                f"error in {delay:.0f}s.",
+                file=sys.stderr,
+            )
+            time.sleep(delay)
+            continue
+
+        if response.status_code in RETRY_STATUS and attempt < MAX_RETRIES:
+            delay = retry_delay(response, attempt)
+            print(
+                f"Retry {attempt + 1}/{MAX_RETRIES} after status "
+                f"{response.status_code} in {delay:.0f}s.",
+                file=sys.stderr,
+            )
+            time.sleep(delay)
+            continue
+        break
 
     if response.status_code != 200:
         raise TursoError(

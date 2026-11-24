@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import os
+import sys
+import time
 from typing import Any, Final
 
 import requests
@@ -15,6 +17,12 @@ TIMEOUT_SECONDS: Final[float] = 15.0
 # The API documents supplyRate, rewardsRate, and totalRate in 1e4 scale.
 # Live check: USDC supplyRate "380" equals 3.80% APR.
 RATE_SCALE: Final[float] = 10_000.0
+
+# Transient status codes. A retry is safe because every call is a GET.
+RETRY_STATUS: Final[frozenset[int]] = frozenset({429, 502, 503, 504})
+MAX_RETRIES: Final[int] = 2
+RETRY_BASE_SECONDS: Final[float] = 1.0
+RETRY_MAX_SECONDS: Final[float] = 10.0
 
 
 class ApiError(RuntimeError):
@@ -40,15 +48,39 @@ def read_api_key() -> str:
     return api_key
 
 
+def retry_delay(response: requests.Response, attempt: int) -> float:
+    """Return the pause before the next try, capped for scheduled jobs."""
+    header = response.headers.get("Retry-After", "").strip()
+    if header.isdigit():
+        return min(float(header), RETRY_MAX_SECONDS)
+    return min(RETRY_BASE_SECONDS * (2**attempt), RETRY_MAX_SECONDS)
+
+
 def fetch_json(api_key: str, url: str) -> list[dict[str, Any]]:
     """Return a JSON list from a Jupiter Lend endpoint."""
     headers = {"x-api-key": api_key, "Accept": "application/json"}
-    try:
-        response = requests.get(url, headers=headers, timeout=TIMEOUT_SECONDS)
-    except requests.Timeout as error:
-        raise ApiError("Request timed out. Check the network and try again.") from error
-    except requests.RequestException as error:
-        raise ApiError(f"Request failed: {error}") from error
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            response = requests.get(
+                url, headers=headers, timeout=TIMEOUT_SECONDS
+            )
+        except requests.Timeout as error:
+            raise ApiError(
+                "Request timed out. Check the network and try again."
+            ) from error
+        except requests.RequestException as error:
+            raise ApiError(f"Request failed: {error}") from error
+
+        if response.status_code in RETRY_STATUS and attempt < MAX_RETRIES:
+            delay = retry_delay(response, attempt)
+            print(
+                f"Retry {attempt + 1}/{MAX_RETRIES} after status "
+                f"{response.status_code} in {delay:.0f}s.",
+                file=sys.stderr,
+            )
+            time.sleep(delay)
+            continue
+        break
 
     if response.status_code == 401:
         raise ApiError("Unauthorized. The API key is missing or invalid.")

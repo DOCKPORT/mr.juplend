@@ -46,17 +46,29 @@ def has_snapshot(connection: sqlite3.Connection, snapshot_date: str) -> bool:
     return row is not None
 
 
+def count_value(connection: sqlite3.Connection, sql: str) -> int | None:
+    """Return the first count from a one-row, one-column query."""
+    row = connection.execute(sql).fetchone()
+    if row is None:
+        return None
+    return int(row[0])
+
+
+def plot_counts_need_backfill(
+    normalized_days: int | None, plot_rows: int | None
+) -> bool:
+    """Return True when a normalized day has no plot row."""
+    if normalized_days is None or plot_rows is None:
+        return False
+    return normalized_days > plot_rows
+
+
 def plot_needs_backfill(connection: sqlite3.Connection) -> bool:
     """Return True when a normalized day has no plot row."""
-    normalized = connection.execute(
-        "SELECT COUNT(DISTINCT substr(fetched_at, 1, 10)) FROM RatesBank"
-    ).fetchone()
-    plot_rows = connection.execute(
-        "SELECT COUNT(*) FROM RatesTotalAPYPlot"
-    ).fetchone()
-    if normalized is None or plot_rows is None:
-        return False
-    return int(normalized[0]) > int(plot_rows[0])
+    return plot_counts_need_backfill(
+        count_value(connection, plot_db.DAY_COUNT_SQL),
+        count_value(connection, plot_db.ROW_COUNT_SQL),
+    )
 
 
 def backfill_plots(connection: sqlite3.Connection) -> None:
@@ -194,18 +206,14 @@ class TursoStore:
                 )
 
         normalized = turso.execute(
-            self.url,
-            self.token,
-            "SELECT COUNT(DISTINCT substr(fetched_at, 1, 10)) FROM RatesBank",
+            self.url, self.token, plot_db.DAY_COUNT_SQL
         )
         plot_rows = turso.execute(
-            self.url, self.token, "SELECT COUNT(*) FROM RatesTotalAPYPlot"
+            self.url, self.token, plot_db.ROW_COUNT_SQL
         )
-        if (
-            normalized
-            and plot_rows
-            and int(normalized[0][0]) > int(plot_rows[0][0])
-        ):
+        normalized_days = int(normalized[0][0]) if normalized else None
+        plot_days = int(plot_rows[0][0]) if plot_rows else None
+        if plot_counts_need_backfill(normalized_days, plot_days):
             for statement in plot_db.PLOT_BACKFILL:
                 turso.execute(self.url, self.token, statement)
 

@@ -23,9 +23,7 @@ UPSERT_SQL: Final[str] = """
 
 EXISTS_SQL: Final[str] = "SELECT 1 FROM Meta WHERE id = 1 LIMIT 1"
 
-LATEST_SQL: Final[str] = (
-    "SELECT fetched_at FROM RatesBank ORDER BY fetched_at DESC LIMIT 1"
-)
+LATEST_SQL: Final[str] = "SELECT MAX(fetched_at) FROM RatesBank"
 
 
 def upsert(

@@ -27,6 +27,13 @@ DELETE_SQL: Final[str] = (
     "DELETE FROM {table} WHERE substr(fetched_at, 1, 10) = ?"
 )
 
+# Backfill check: count normalized days in the bank, then plot rows.
+DAY_COUNT_SQL: Final[str] = (
+    "SELECT COUNT(DISTINCT substr(fetched_at, 1, 10)) FROM RatesBank"
+)
+
+ROW_COUNT_SQL: Final[str] = "SELECT COUNT(*) FROM RatesTotalAPYPlot"
+
 
 def plot_ddl(table: str) -> str:
     """Return the DDL for one plot daily read table."""
@@ -65,22 +72,29 @@ def plot_backfill(table: str, source: str, column: str) -> str:
     )
 
 
-TABLES: Final[tuple[str, ...]] = (
-    "RatesTotalAPYPlot",
-    "PoolTotalAssetsPlot",
-    "LiquidityUtilizationPlot",
+# One entry per chart series: plot table, source bank table, value column.
+PLOT_SPECS: Final[tuple[tuple[str, str, str], ...]] = (
+    ("RatesTotalAPYPlot", "RatesBank", "total_apy"),
+    ("PoolTotalAssetsPlot", "PoolBank", "total_assets"),
+    ("LiquidityUtilizationPlot", "LiquidityBank", "utilization"),
 )
 
-RATES_PLOT_INSERT: Final[str] = plot_insert("RatesTotalAPYPlot")
-POOL_PLOT_INSERT: Final[str] = plot_insert("PoolTotalAssetsPlot")
-LIQUIDITY_PLOT_INSERT: Final[str] = plot_insert("LiquidityUtilizationPlot")
+TABLES: Final[tuple[str, ...]] = tuple(
+    plot_table for plot_table, _, _ in PLOT_SPECS
+)
 
-PLOT_BACKFILL: Final[tuple[str, ...]] = (
-    plot_backfill("RatesTotalAPYPlot", "RatesBank", "total_apy"),
-    plot_backfill("PoolTotalAssetsPlot", "PoolBank", "total_assets"),
-    plot_backfill(
-        "LiquidityUtilizationPlot", "LiquidityBank", "utilization"
-    ),
+PLOT_INSERTS: Final[dict[str, str]] = {
+    source: plot_insert(plot_table)
+    for plot_table, source, _ in PLOT_SPECS
+}
+
+RATES_PLOT_INSERT: Final[str] = PLOT_INSERTS["RatesBank"]
+POOL_PLOT_INSERT: Final[str] = PLOT_INSERTS["PoolBank"]
+LIQUIDITY_PLOT_INSERT: Final[str] = PLOT_INSERTS["LiquidityBank"]
+
+PLOT_BACKFILL: Final[tuple[str, ...]] = tuple(
+    plot_backfill(plot_table, source, column)
+    for plot_table, source, column in PLOT_SPECS
 )
 
 SCHEMA: Final[tuple[str, ...]] = tuple(plot_ddl(table) for table in TABLES)

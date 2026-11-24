@@ -60,7 +60,7 @@ def main() -> int:
             now.isoformat(timespec="seconds"),
             complete=not partial_snapshot,
         )
-    except (sqlite3.Error, TursoError) as error:
+    except (OSError, sqlite3.Error, TursoError) as error:
         print(f"Warning: database write failed: {error}", file=sys.stderr)
     else:
         snapshot_date = now.date().isoformat()
