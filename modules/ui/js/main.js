@@ -104,9 +104,6 @@
       return;
     }
 
-    const config = /** @type {{ readToken?: string } | undefined} */ (
-      ns.config
-    );
     const api = /** @type {{ fetchLatest: () => Promise<Snapshot>, fetchHistory: () => Promise<HistoryRow[]>, fetchPoolHistory: () => Promise<PoolHistoryRow[]>, fetchLiquidityHistory: () => Promise<LiquidityHistoryRow[]>, fetchBondYield: () => Promise<BondYield> } | undefined} */ (
       ns.api
     );
@@ -123,20 +120,6 @@
     if (!api || !render) {
       setAppState("error");
       setStatus("The page scripts did not load.", "error");
-      return;
-    }
-
-    if (!config || !config.readToken) {
-      setAppState("error");
-      setStatus(
-        "Add the Turso read token to modules/ui/js/config.js.",
-        "error",
-      );
-      render.renderAll([]);
-      chart?.renderRates([]);
-      chart?.renderPool([]);
-      chart?.renderLiquidity([]);
-      benchmark?.render([], { value: null, date: null }, null);
       return;
     }
 

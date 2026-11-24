@@ -28,8 +28,8 @@ A SQLite database keeps one snapshot per day and the full history. The Python wr
 
 - A new run on the same day replaces that day's rows, so each day has one set of data.
 - GitHub Actions will run the script with Turso credentials.
-- The Vercel web app reads current and historical data from Turso.
-- The browser never receives the Jupiter API key or the Turso write token.
+- A Vercel function reads Turso and serves the data to the page.
+- The browser never receives the Jupiter API key, the Turso URL, or either Turso token.
 
 ## Tech stack
 
@@ -37,6 +37,7 @@ A SQLite database keeps one snapshot per day and the full history. The Python wr
 - HTML, CSS, and vanilla JavaScript for the web app.
 - SQLite for local storage and history.
 - Turso for the hosted cloud database.
+- A Vercel function for read access.
 - GitHub Actions for scheduled updates.
 - Vercel for static hosting.
 
@@ -47,9 +48,12 @@ The site is static. Vercel serves `index.html`, `modules/ui/`, and the used asse
 1. Import `DOCKPORT/mr.juplend` in Vercel.
 2. Set the framework preset to Other.
 3. Leave the build command empty.
-4. Deploy.
+4. Add the environment variables `TURSO_URL` and `TURSO_READ` for Production.
+5. Deploy.
 
-The browser reads Turso with the read-only token in `modules/ui/js/config.js`. The Python files and the local database are excluded by `.vercelignore`.
+The browser calls `/api/turso_data`. That function reads `TURSO_URL` and `TURSO_READ` from the Vercel environment and queries Turso. Neither value reaches the browser.
+
+For local development only, create `modules/ui/js/config.js` with `tursoUrl` and `readToken`. That file is ignored by git and excluded from the deploy.
 
 ## Status
 

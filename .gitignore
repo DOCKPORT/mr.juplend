@@ -6,3 +6,4 @@ data/
 turso_key.py
 turso_keys
 /Pipeline
+modules/ui/js/config.js

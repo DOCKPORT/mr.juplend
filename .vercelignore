@@ -4,6 +4,7 @@ main.py
 requirements.txt
 modules/*.py
 modules/__pycache__/
+modules/ui/js/config.js
 __pycache__/
 *.pyc
 data/
