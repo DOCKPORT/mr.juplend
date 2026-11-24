@@ -69,6 +69,14 @@
     value === null || !Number.isFinite(value) ? "\u2014" : `${value.toFixed(2)}%`;
 
   /**
+   * Format a percent with a plus sign for zero and above.
+   * @param {number | null} value
+   * @returns {string}
+   */
+  const signedPercent = (value) =>
+    value === null ? "\u2014" : `${value >= 0 ? "+" : ""}${percent(value)}`;
+
+  /**
    * Draw the benchmark values.
    * @param {SnapshotRow[]} rows
    * @param {{ value: number | null, date: string | null }} bond
@@ -90,10 +98,7 @@
       : "Unavailable";
 
     const spreadNode = requireElement("benchmark-spread");
-    spreadNode.textContent =
-      spread === null
-        ? "\u2014"
-        : `${spread >= 0 ? "+" : ""}${spread.toFixed(2)}%`;
+    spreadNode.textContent = signedPercent(spread);
     spreadNode.classList.toggle("is-positive", spread !== null && spread >= 0);
     spreadNode.classList.toggle("is-negative", spread !== null && spread < 0);
   };

@@ -169,43 +169,32 @@
         setStatus("");
       }
 
-      if (historyResult.status === "fulfilled") {
-        if (chart) {
-          chart.renderRates(historyResult.value);
+      /**
+       * Draw one history chart and set its status line.
+       * @param {PromiseSettledResult<object[]>} result
+       * @param {string} id
+       * @param {(rows: object[]) => void} draw
+       * @returns {void}
+       */
+      const applyHistory = (result, id, draw) => {
+        if (result.status !== "fulfilled") {
+          console.error(result.reason);
+          setChartStatus(id, "History failed to load.", "error");
+          return;
         }
-        setChartStatus("chart-status", "");
-      } else {
-        console.error(historyResult.reason);
-        setChartStatus("chart-status", "History failed to load.", "error");
-      }
+        draw(result.value);
+        setChartStatus(id, "");
+      };
 
-      if (poolHistoryResult.status === "fulfilled") {
-        if (chart) {
-          chart.renderPool(poolHistoryResult.value);
-        }
-        setChartStatus("pool-chart-status", "");
-      } else {
-        console.error(poolHistoryResult.reason);
-        setChartStatus(
-          "pool-chart-status",
-          "History failed to load.",
-          "error",
-        );
-      }
-
-      if (liquidityHistoryResult.status === "fulfilled") {
-        if (chart) {
-          chart.renderLiquidity(liquidityHistoryResult.value);
-        }
-        setChartStatus("liquidity-chart-status", "");
-      } else {
-        console.error(liquidityHistoryResult.reason);
-        setChartStatus(
-          "liquidity-chart-status",
-          "History failed to load.",
-          "error",
-        );
-      }
+      applyHistory(historyResult, "chart-status", (rows) =>
+        chart?.renderRates(rows),
+      );
+      applyHistory(poolHistoryResult, "pool-chart-status", (rows) =>
+        chart?.renderPool(rows),
+      );
+      applyHistory(liquidityHistoryResult, "liquidity-chart-status", (rows) =>
+        chart?.renderLiquidity(rows),
+      );
 
       const bond =
         bondResult.status === "fulfilled"

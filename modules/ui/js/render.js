@@ -117,9 +117,16 @@
    * @param {string} emptyId
    * @param {Array<Array<string>>} rows
    * @param {number} [highlightIndex]
+   * @param {(rowIndex: number) => string} [lastCellClass]
    * @returns {void}
    */
-  const fill = (bodyId, emptyId, rows, highlightIndex = -1) => {
+  const fill = (
+    bodyId,
+    emptyId,
+    rows,
+    highlightIndex = -1,
+    lastCellClass = null,
+  ) => {
     const body = requireElement(bodyId);
     const empty = requireElement(emptyId);
     body.replaceChildren();
@@ -130,7 +137,7 @@
     }
 
     const fragment = document.createDocumentFragment();
-    for (const cells of rows) {
+    rows.forEach((cells, rowIndex) => {
       const tr = document.createElement("tr");
       cells.forEach((text, index) => {
         const td = document.createElement("td");
@@ -145,10 +152,16 @@
         if (index === highlightIndex) {
           td.classList.add("is-positive");
         }
+        if (lastCellClass && index === cells.length - 1) {
+          const extra = lastCellClass(rowIndex);
+          if (extra) {
+            td.classList.add(extra);
+          }
+        }
         tr.append(td);
       });
       fragment.append(tr);
-    }
+    });
     body.append(fragment);
   };
 
@@ -246,17 +259,9 @@
         amount(row.totalBorrowed),
         percent(row.utilization),
       ]),
+      -1,
+      (rowIndex) => utilizationClass(sorted[rowIndex].utilization),
     );
-
-    const body = requireElement("liquidity-rows");
-    sorted.forEach((row, index) => {
-      const tr = body.children[index];
-      const cell = tr instanceof HTMLElement ? tr.children[5] : null;
-      const className = utilizationClass(row.utilization);
-      if (cell instanceof HTMLElement && className) {
-        cell.classList.add(className);
-      }
-    });
   };
 
   /**

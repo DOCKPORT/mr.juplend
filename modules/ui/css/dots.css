@@ -11,8 +11,7 @@
 }
 
 /* A browser without mask support must not paint a plain grey sheet. */
-@supports ((mask-image: var(--dot-image)) or
-  (-webkit-mask-image: var(--dot-image))) {
+@supports ((mask-image: none) or (-webkit-mask-image: none)) {
   body::before {
     content: "";
     position: fixed;

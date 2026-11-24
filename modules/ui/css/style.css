@@ -108,7 +108,8 @@ main,
 }
 
 /* --- Section head --------------------------------------------------------- */
-.section-head {
+.section-head,
+.chart-panel__head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -275,14 +276,6 @@ main,
 .chart-panel {
   margin-block-start: var(--space-4);
   padding: var(--space-4);
-}
-
-.chart-panel__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2) var(--space-4);
-  margin-block-end: var(--space-3);
 }
 
 .chart-panel__head h3 {

@@ -76,6 +76,13 @@
     Number.isFinite(value) ? `${value.toFixed(2)}%` : "\u2014";
 
   /**
+   * Format a percent axis tick with one decimal place.
+   * @param {number} value
+   * @returns {string}
+   */
+  const formatTickPercent = (value) => `${value.toFixed(1)}%`;
+
+  /**
    * Format a token amount.
    * @param {number} value
    * @returns {string}
@@ -275,7 +282,7 @@
       rows,
       valueKey: "totalApy",
       formatValue: formatPercent,
-      formatTick: (value) => `${value.toFixed(1)}%`,
+      formatTick: formatTickPercent,
     });
   };
 
@@ -307,7 +314,7 @@
       rows,
       valueKey: "utilization",
       formatValue: formatPercent,
-      formatTick: (value) => `${value.toFixed(1)}%`,
+      formatTick: formatTickPercent,
     });
   };
 
