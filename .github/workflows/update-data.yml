@@ -1,0 +1,39 @@
+name: Update Jupiter Lend data
+
+on:
+  schedule:
+    # 18:00 UTC every day. The snapshot date is UTC.
+    - cron: "0 18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mr-juplend-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Fetch and store the snapshot
+        env:
+          JUP_API_KEY: ${{ secrets.JUP_KEY }}
+          TURSO_URL: ${{ secrets.TURSO_URL }}
+          TURSO_WRITE_TOKEN: ${{ secrets.TURSO_WRITE }}
+        run: python main.py

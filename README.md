@@ -48,5 +48,5 @@ A SQLite database keeps one snapshot per day and the full history. The Python wr
 | SQLite storage | Ready |
 | Turso cloud database | Ready |
 | Web app | In progress |
-| Scheduled updates | Planned |
+| Scheduled updates | In progress |
 | Charts and history | In progress |
