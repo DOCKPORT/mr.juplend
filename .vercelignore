@@ -1,4 +1,7 @@
 # The site is static. Python tooling and private data stay out of the deploy.
+*.py
+main.py
+requirements.txt
 modules/*.py
 modules/__pycache__/
 __pycache__/
@@ -6,3 +9,7 @@ __pycache__/
 data/
 memorybank/
 .github/
+logos/mr.psd
+logos/post.jpg
+logos/Screenshot_2026-11-21_18-51-57.png
+logos/jupiter-lend.svg

@@ -40,6 +40,17 @@ A SQLite database keeps one snapshot per day and the full history. The Python wr
 - GitHub Actions for scheduled updates.
 - Vercel for static hosting.
 
+## Deploy
+
+The site is static. Vercel serves `index.html`, `modules/ui/`, and the used assets in `logos/`.
+
+1. Import `DOCKPORT/mr.juplend` in Vercel.
+2. Set the framework preset to Other.
+3. Leave the build command empty.
+4. Deploy.
+
+The browser reads Turso with the read-only token in `modules/ui/js/config.js`. The Python files and the local database are excluded by `.vercelignore`.
+
 ## Status
 
 | Part | Status |
