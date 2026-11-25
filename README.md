@@ -2,7 +2,9 @@
 
 <p align="center"><img src="logos/mr.svg" alt="Mr. Juplend" width="220"></p>
 
-A web app that shows the latest APY and pool details for Jupiter Lend Earn vaults on Solana. The Python report works now. The web frontend is in progress.
+A web app that shows the latest APY and pool details for Jupiter Lend Earn vaults on Solana.
+
+Deployment : https://mr-juplend.vercel.app/
 
 ## What it does
 
@@ -20,11 +22,11 @@ The data comes from the [Jupiter Lend API](https://developers.jup.ag/docs/lend).
 - APY uses continuous compounding: `e^(APR) - 1`.
 - Utilization is calculated as total borrowed divided by total supply.
 
-The API key lives in `modules/jupdev_key.py` or in the `JUP_API_KEY` environment variable. The `jupdev_key.py` file is ignored by git.
+
 
 ## Storage
 
-A SQLite database keeps one snapshot per day and the full history. The Python writer uses Turso when credentials are set. Otherwise it writes the local `data/mrjuplend.db` file.
+A SQLite database keeps one snapshot per day and the full history. The Python writer uses Turso when credentials are set.
 
 - A new run on the same day replaces that day's rows, so each day has one set of data.
 - GitHub Actions will run the script with Turso credentials.
@@ -41,27 +43,4 @@ A SQLite database keeps one snapshot per day and the full history. The Python wr
 - GitHub Actions for scheduled updates.
 - Vercel for static hosting.
 
-## Deploy
 
-The site is static. Vercel serves `index.html`, `modules/ui/`, and the used assets in `logos/`.
-
-1. Import `DOCKPORT/mr.juplend` in Vercel.
-2. Set the framework preset to Other.
-3. Leave the build command empty.
-4. Add the environment variables `TURSO_URL` and `TURSO_READ` for Production.
-5. Deploy.
-
-The browser calls `/api/turso_data`. That function reads `TURSO_URL` and `TURSO_READ` from the Vercel environment and queries Turso. Neither value reaches the browser.
-
-For local development only, create `modules/ui/js/config.js` with `tursoUrl` and `readToken`. That file is ignored by git and excluded from the deploy.
-
-## Status
-
-| Part | Status |
-| - | - |
-| Python report | Ready |
-| SQLite storage | Ready |
-| Turso cloud database | Ready |
-| Web app | In progress |
-| Scheduled updates | In progress |
-| Charts and history | In progress |
