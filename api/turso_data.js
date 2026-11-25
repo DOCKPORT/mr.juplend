@@ -103,13 +103,18 @@ function expandHistory(rows, valueKey) {
 }
 
 async function loadHistory(url, token, table, bankTable, column, valueKey) {
-  const rows = await query(
-    url,
-    token,
-    `SELECT fetched_at, ${PLOT_COLUMNS} FROM ${table} ORDER BY fetched_at ASC`,
-  );
-  if (rows.length) {
-    return expandHistory(rows, valueKey);
+  try {
+    const rows = await query(
+      url,
+      token,
+      `SELECT fetched_at, ${PLOT_COLUMNS} FROM ${table} ORDER BY fetched_at ASC`,
+    );
+    if (rows.length) {
+      return expandHistory(rows, valueKey);
+    }
+  } catch (error) {
+    // The plot table may not exist yet. Use the bank table instead.
+    console.error("Plot history read failed:", error.message);
   }
 
   const fallback = await query(
@@ -134,7 +139,11 @@ async function loadLatest(url, token) {
     url,
     token,
     "SELECT latest_day, latest_fetched_at FROM Meta WHERE id = 1",
-  );
+  ).catch((error) => {
+    // The Meta table may not exist yet. Use the newest bank row instead.
+    console.error("Meta read failed:", error.message);
+    return [];
+  });
   if (meta.length && meta[0].length) {
     day = meta[0][0] ? String(meta[0][0]) : null;
     fetchedAt = meta[0][1] ? String(meta[0][1]) : null;

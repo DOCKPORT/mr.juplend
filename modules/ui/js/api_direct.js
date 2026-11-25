@@ -273,31 +273,56 @@
     };
   };
 
+  /** One history series: plot table, value key, bank table, column. */
+  const HISTORY_SERIES = {
+    rates: {
+      plotTable: "RatesTotalAPYPlot",
+      key: "totalApy",
+      bankTable: "RatesBank",
+      column: "total_apy",
+    },
+    pool: {
+      plotTable: "PoolTotalAssetsPlot",
+      key: "totalAssets",
+      bankTable: "PoolBank",
+      column: "total_assets",
+    },
+    liquidity: {
+      plotTable: "LiquidityUtilizationPlot",
+      key: "utilization",
+      bankTable: "LiquidityBank",
+      column: "utilization",
+    },
+  };
+
+  /**
+   * Read one history series, oldest day first.
+   * @param {{ tursoUrl: string, readToken: string }} config
+   * @param {{ plotTable: string, key: string, bankTable: string, column: string }} series
+   * @returns {Promise<object[]>}
+   */
+  const fetchSeries = (config, series) =>
+    fetchPlotHistory(config, series.plotTable, series.key, async () => {
+      const rows = await query(
+        config,
+        `SELECT substr(fetched_at, 1, 10) AS day, symbol, ${series.column}
+           FROM ${series.bankTable}
+           ORDER BY day ASC, symbol ASC`,
+        [],
+      );
+      return rows.map((row) => ({
+        day: String(row[0] ?? ""),
+        symbol: String(row[1] ?? ""),
+        [series.key]: /** @type {number | null} */ (row[2]),
+      }));
+    });
+
   /**
    * Read every day of the RatesBank table.
    * @param {{ tursoUrl: string, readToken: string }} config
    * @returns {Promise<HistoryRow[]>}
    */
-  const fetchHistory = (config) =>
-    fetchPlotHistory(
-      config,
-      "RatesTotalAPYPlot",
-      "totalApy",
-      async () => {
-        const rows = await query(
-          config,
-          `SELECT substr(fetched_at, 1, 10) AS day, symbol, total_apy
-           FROM RatesBank
-           ORDER BY day ASC, symbol ASC`,
-          [],
-        );
-        return rows.map((row) => ({
-          day: String(row[0] ?? ""),
-          symbol: String(row[1] ?? ""),
-          totalApy: /** @type {number | null} */ (row[2]),
-        }));
-      },
-    );
+  const fetchHistory = (config) => fetchSeries(config, HISTORY_SERIES.rates);
 
   /**
    * Read every day of the PoolBank table.
@@ -305,25 +330,7 @@
    * @returns {Promise<PoolHistoryRow[]>}
    */
   const fetchPoolHistory = (config) =>
-    fetchPlotHistory(
-      config,
-      "PoolTotalAssetsPlot",
-      "totalAssets",
-      async () => {
-        const rows = await query(
-          config,
-          `SELECT substr(fetched_at, 1, 10) AS day, symbol, total_assets
-           FROM PoolBank
-           ORDER BY day ASC, symbol ASC`,
-          [],
-        );
-        return rows.map((row) => ({
-          day: String(row[0] ?? ""),
-          symbol: String(row[1] ?? ""),
-          totalAssets: /** @type {number | null} */ (row[2]),
-        }));
-      },
-    );
+    fetchSeries(config, HISTORY_SERIES.pool);
 
   /**
    * Read every day of the LiquidityBank table.
@@ -331,25 +338,7 @@
    * @returns {Promise<LiquidityHistoryRow[]>}
    */
   const fetchLiquidityHistory = (config) =>
-    fetchPlotHistory(
-      config,
-      "LiquidityUtilizationPlot",
-      "utilization",
-      async () => {
-        const rows = await query(
-          config,
-          `SELECT substr(fetched_at, 1, 10) AS day, symbol, utilization
-           FROM LiquidityBank
-           ORDER BY day ASC, symbol ASC`,
-          [],
-        );
-        return rows.map((row) => ({
-          day: String(row[0] ?? ""),
-          symbol: String(row[1] ?? ""),
-          utilization: /** @type {number | null} */ (row[2]),
-        }));
-      },
-    );
+    fetchSeries(config, HISTORY_SERIES.liquidity);
 
   ns.direct = {
     fetchLatest,

@@ -39,23 +39,24 @@
     };
   };
 
-  /** @returns {Promise<HistoryRow[]>} */
-  const fetchHistory = async () => {
+  /**
+   * Build one payload reader.
+   * @param {string} key
+   * @returns {() => Promise<object[]>}
+   */
+  const payloadReader = (key) => async () => {
     const payload = await load();
-    return Array.isArray(payload.rates) ? payload.rates : [];
+    return Array.isArray(payload[key]) ? payload[key] : [];
   };
+
+  /** @returns {Promise<HistoryRow[]>} */
+  const fetchHistory = payloadReader("rates");
 
   /** @returns {Promise<PoolHistoryRow[]>} */
-  const fetchPoolHistory = async () => {
-    const payload = await load();
-    return Array.isArray(payload.pool) ? payload.pool : [];
-  };
+  const fetchPoolHistory = payloadReader("pool");
 
   /** @returns {Promise<LiquidityHistoryRow[]>} */
-  const fetchLiquidityHistory = async () => {
-    const payload = await load();
-    return Array.isArray(payload.liquidity) ? payload.liquidity : [];
-  };
+  const fetchLiquidityHistory = payloadReader("liquidity");
 
   ns.proxy = {
     fetchLatest,
