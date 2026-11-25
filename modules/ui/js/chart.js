@@ -128,12 +128,21 @@
 
     const datasets = [];
     let index = 0;
+    const mean = (values) =>
+      ns.avg && typeof ns.avg.mean === "function"
+        ? ns.avg.mean(values)
+        : null;
+
     for (const [symbol, points] of values) {
       const color =
         COLORS[symbol.toUpperCase()] || PALETTE[index % PALETTE.length];
+      const data = days.map((day) =>
+        points.has(day) ? points.get(day) : null,
+      );
       datasets.push({
         label: symbol,
-        data: days.map((day) => (points.has(day) ? points.get(day) : null)),
+        data,
+        average: mean(data),
         borderColor: color,
         backgroundColor: color,
         borderWidth: 2,
@@ -244,10 +253,18 @@
               return rightValue - leftValue;
             },
             callbacks: {
-              label: (context) =>
-                `${context.dataset.label}: ${formatValue(
-                  Number(context.parsed.y),
-                )}`,
+              label: (context) => {
+                const value = Number(context.parsed.y);
+                const rawAverage = context.dataset.average;
+                const average =
+                  typeof rawAverage === "number" ? rawAverage : NaN;
+                const averageText = Number.isFinite(average)
+                  ? ` (AVG. ${formatValue(average)})`
+                  : "";
+                return `${context.dataset.label}: ${formatValue(
+                  value,
+                )}${averageText}`;
+              },
             },
           },
         },
