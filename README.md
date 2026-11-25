@@ -22,7 +22,18 @@ The data comes from the [Jupiter Lend API](https://developers.jup.ag/docs/lend).
 - APY uses continuous compounding: `e^(APR) - 1`.
 - Utilization is calculated as total borrowed divided by total supply.
 
+## History
 
+Jupiter Lend shows today's rates. It does not show yesterday's.
+
+Mr. Juplend fills that gap. We record one snapshot every day in our own database, so the history exists even when the official API offers none.
+
+- History starts on 22 November 2026.
+- Every day adds one more point.
+- Charts, averages, and the Treasury spread use these records.
+- A failed daily run leaves a gap. We do not invent values.
+
+Over time, the site becomes a record of how Jupiter Lend rates moved, not just where they are today.
 
 ## Storage
 
@@ -35,12 +46,14 @@ A SQLite database keeps one snapshot per day and the full history. The Python wr
 
 ## Tech stack
 
-- Python 3.10 or later with `requests`.
-- HTML, CSS, and vanilla JavaScript for the web app.
-- SQLite for local storage and history.
-- Turso for the hosted cloud database.
-- A Vercel function for read access.
-- GitHub Actions for scheduled updates.
-- Vercel for static hosting.
+| Technology | Role |
+| --- | --- |
+| Python 3.10 or later with `requests` | Fetches the data and writes the daily snapshot. |
+| HTML, CSS, and vanilla JavaScript | Builds the web app and the charts. |
+| SQLite | Keeps local storage and history. |
+| Turso | Hosts the cloud database. |
+| A Vercel function | Reads Turso and serves the data to the page. |
+| GitHub Actions | Runs the scheduled updates. |
+| Vercel | Hosts the static site. |
 
 
