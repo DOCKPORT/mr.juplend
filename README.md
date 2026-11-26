@@ -57,3 +57,8 @@ A SQLite database keeps one snapshot per day and the full history. The Python wr
 | Vercel | Hosts the static site. |
 
 
+
+## Preview
+
+![jup_dev](logos/a.png)
+
