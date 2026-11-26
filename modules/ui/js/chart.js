@@ -20,14 +20,14 @@
 
   /** Fixed colors by symbol. */
   const COLORS = {
-    USDC: "#3b82f6",
-    USDT: "#22c55e",
-    USDS: "#06b6d4",
-    USDG: "#f59e0b",
-    USDGO: "#ef4444",
-    JUPUSD: "#a855f7",
-    SOL: "#84cc16",
-    EURC: "#ec4899",
+    USDC: "#4479ca",
+    USDT: "#64bebf",
+    USDS: "#ff8c5a",
+    USDG: "#c7e36c",
+    USDGO: "#61d601",
+    JUPUSD: "#49c4a7",
+    SOL: "#9945ff",
+    EURC: "#1aa3ff",
   };
 
   /** Fallback colors for a new symbol. */

@@ -2,8 +2,8 @@ name: Update Jupiter Lend data
 
 on:
   schedule:
-    # 18:00 UTC every day. The snapshot date is UTC.
-    - cron: "0 18 * * *"
+    # 00:00 UTC every day. The snapshot date is UTC.
+    - cron: "0 00 * * *"
   workflow_dispatch:
 
 permissions:
