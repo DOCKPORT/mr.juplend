@@ -33,6 +33,10 @@
   /** Fallback colors for a new symbol. */
   const PALETTE = ["#f97316", "#8b5cf6", "#2dd4bf", "#facc15"];
 
+  /** Theme font family for chart text. */
+  const CHART_FONT =
+    '"Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace';
+
   /** @type {Map<string, unknown>} */
   const instances = new Map();
 
@@ -243,8 +247,8 @@
             },
           },
           tooltip: {
-            titleFont: { size: 14 },
-            bodyFont: { size: 14 },
+            titleFont: { family: CHART_FONT, size: 15 },
+            bodyFont: { family: CHART_FONT, size: 15 },
             itemSort: (left, right) => {
               const a = Number(left.parsed.y);
               const b = Number(right.parsed.y);
