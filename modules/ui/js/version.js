@@ -9,5 +9,5 @@
   const page = window;
   const ns = page.MRJUPLEND || (page.MRJUPLEND = {});
 
-  ns.version = "v0.1.0";
+  ns.version = "v1.0.0-pre";
 })();
